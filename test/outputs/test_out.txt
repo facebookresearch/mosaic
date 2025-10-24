@@ -1,0 +1,216 @@
+
+Num of Calls: 1, Memory Usage: 0.09228580631315708 GiB
+foo, /path/to/baz.py:969
+  bar, /path/to/foo.py:1483
+
+Num of Calls: 1, Memory Usage: 0.08926969580352306 GiB
+baz, /path/to/foo.py:440
+  foo, /path/to/bar.py:1874
+    foo, /path/to/baz.py:1830
+      bar, /path/to/baz.py:145
+
+Num of Calls: 1, Memory Usage: 0.0878204982727766 GiB
+foo, /path/to/foo.py:208
+  baz, /path/to/baz.py:188
+    bar, /path/to/foo.py:1924
+      bar, /path/to/bar.py:360
+
+Num of Calls: 1, Memory Usage: 0.08774584904313087 GiB
+baz, /path/to/bar.py:876
+  baz, /path/to/foo.py:1618
+    baz, /path/to/foo.py:1415
+      baz, /path/to/baz.py:993
+        bar, /path/to/baz.py:1355
+
+Num of Calls: 1, Memory Usage: 0.0818066131323576 GiB
+baz, /path/to/foo.py:1090
+  baz, /path/to/baz.py:532
+
+Num of Calls: 1, Memory Usage: 0.08084199205040932 GiB
+foo, /path/to/baz.py:944
+  baz, /path/to/foo.py:1474
+    bar, /path/to/bar.py:1785
+      foo, /path/to/baz.py:939
+        foo, /path/to/baz.py:1124
+
+Num of Calls: 1, Memory Usage: 0.07673855870962143 GiB
+foo, /path/to/baz.py:828
+  bar, /path/to/foo.py:1498
+    foo, /path/to/baz.py:946
+      bar, /path/to/bar.py:1199
+        foo, /path/to/foo.py:1802
+
+Num of Calls: 1, Memory Usage: 0.0750607717782259 GiB
+baz, /path/to/bar.py:1069
+  bar, /path/to/foo.py:352
+    foo, /path/to/baz.py:1991
+      bar, /path/to/foo.py:1001
+
+Num of Calls: 1, Memory Usage: 0.07382981292903423 GiB
+foo, /path/to/foo.py:157
+  baz, /path/to/bar.py:1548
+    bar, /path/to/bar.py:416
+
+Num of Calls: 1, Memory Usage: 0.07319589518010616 GiB
+foo, /path/to/foo.py:170
+  baz, /path/to/bar.py:914
+
+Num of Calls: 1, Memory Usage: 0.06600471679121256 GiB
+foo, /path/to/foo.py:1046
+  foo, /path/to/baz.py:1853
+    baz, /path/to/foo.py:1968
+      baz, /path/to/bar.py:1103
+
+Num of Calls: 1, Memory Usage: 0.06509141717106104 GiB
+baz, /path/to/foo.py:1109
+  bar, /path/to/baz.py:1531
+    foo, /path/to/foo.py:647
+      bar, /path/to/foo.py:254
+
+Num of Calls: 1, Memory Usage: 0.06432078965008259 GiB
+bar, /path/to/bar.py:1290
+  baz, /path/to/baz.py:1391
+
+Num of Calls: 1, Memory Usage: 0.06338588800281286 GiB
+baz, /path/to/bar.py:1833
+  bar, /path/to/baz.py:1918
+    foo, /path/to/baz.py:1032
+
+Num of Calls: 1, Memory Usage: 0.063191675581038 GiB
+bar, /path/to/bar.py:757
+  bar, /path/to/baz.py:760
+    foo, /path/to/foo.py:1058
+      bar, /path/to/foo.py:767
+
+Num of Calls: 1, Memory Usage: 0.061389618553221226 GiB
+foo, /path/to/bar.py:704
+  bar, /path/to/bar.py:738
+
+Num of Calls: 1, Memory Usage: 0.06012148782610893 GiB
+foo, /path/to/baz.py:659
+  baz, /path/to/foo.py:1569
+    bar, /path/to/foo.py:339
+      bar, /path/to/bar.py:611
+        foo, /path/to/baz.py:828
+
+Num of Calls: 1, Memory Usage: 0.05986037012189627 GiB
+bar, /path/to/baz.py:1379
+  baz, /path/to/baz.py:1678
+
+Num of Calls: 1, Memory Usage: 0.05852862820029259 GiB
+bar, /path/to/baz.py:1498
+  bar, /path/to/bar.py:1482
+    bar, /path/to/baz.py:1023
+
+Num of Calls: 1, Memory Usage: 0.05783439986407757 GiB
+foo, /path/to/bar.py:1392
+  foo, /path/to/bar.py:1879
+    foo, /path/to/bar.py:993
+
+Num of Calls: 1, Memory Usage: 0.05776354856789112 GiB
+foo, /path/to/baz.py:1391
+  bar, /path/to/baz.py:1555
+
+Num of Calls: 1, Memory Usage: 0.05662052799016237 GiB
+foo, /path/to/baz.py:1901
+  foo, /path/to/foo.py:936
+    foo, /path/to/bar.py:1698
+
+Num of Calls: 1, Memory Usage: 0.054384960792958736 GiB
+foo, /path/to/baz.py:607
+  foo, /path/to/foo.py:843
+
+Num of Calls: 1, Memory Usage: 0.052750120870769024 GiB
+foo, /path/to/bar.py:535
+  baz, /path/to/bar.py:1080
+
+Num of Calls: 1, Memory Usage: 0.05217748507857323 GiB
+bar, /path/to/bar.py:1877
+  foo, /path/to/foo.py:1006
+    baz, /path/to/baz.py:1346
+
+Num of Calls: 1, Memory Usage: 0.04995465278625488 GiB
+foo, /path/to/bar.py:1333
+  bar, /path/to/bar.py:442
+    foo, /path/to/bar.py:647
+
+Num of Calls: 1, Memory Usage: 0.04804904479533434 GiB
+foo, /path/to/bar.py:221
+  foo, /path/to/baz.py:376
+    foo, /path/to/foo.py:1559
+      bar, /path/to/bar.py:1194
+
+Num of Calls: 1, Memory Usage: 0.04270901158452034 GiB
+foo, /path/to/foo.py:1658
+  bar, /path/to/foo.py:1956
+    baz, /path/to/foo.py:1129
+      foo, /path/to/baz.py:1864
+        bar, /path/to/baz.py:1980
+
+Num of Calls: 1, Memory Usage: 0.0409173434600234 GiB
+bar, /path/to/foo.py:1776
+  foo, /path/to/foo.py:915
+
+Num of Calls: 1, Memory Usage: 0.040700387209653854 GiB
+bar, /path/to/baz.py:797
+  foo, /path/to/baz.py:1409
+
+Num of Calls: 1, Memory Usage: 0.03615668881684542 GiB
+foo, /path/to/baz.py:686
+  foo, /path/to/baz.py:630
+    bar, /path/to/bar.py:1225
+      bar, /path/to/foo.py:933
+        foo, /path/to/baz.py:306
+
+Num of Calls: 1, Memory Usage: 0.03404863644391298 GiB
+foo, /path/to/baz.py:1130
+  baz, /path/to/bar.py:595
+    foo, /path/to/bar.py:863
+
+Num of Calls: 1, Memory Usage: 0.032928433269262314 GiB
+bar, /path/to/baz.py:1923
+  bar, /path/to/bar.py:931
+    bar, /path/to/bar.py:1205
+      foo, /path/to/baz.py:340
+
+Num of Calls: 1, Memory Usage: 0.016781091690063477 GiB
+bar, /path/to/foo.py:1249
+  foo, /path/to/foo.py:130
+    baz, /path/to/foo.py:929
+      bar, /path/to/baz.py:1158
+
+Num of Calls: 1, Memory Usage: 0.01146913506090641 GiB
+bar, /path/to/bar.py:797
+  foo, /path/to/baz.py:704
+    bar, /path/to/bar.py:425
+      baz, /path/to/foo.py:188
+        foo, /path/to/baz.py:328
+
+Num of Calls: 1, Memory Usage: 0.010138904675841331 GiB
+baz, /path/to/foo.py:1378
+  bar, /path/to/foo.py:1982
+
+Num of Calls: 1, Memory Usage: 0.008516841568052769 GiB
+foo, /path/to/baz.py:1765
+  baz, /path/to/foo.py:537
+    foo, /path/to/baz.py:1407
+      foo, /path/to/foo.py:1566
+        baz, /path/to/foo.py:1243
+
+Num of Calls: 1, Memory Usage: 0.008174565620720387 GiB
+bar, /path/to/bar.py:118
+  baz, /path/to/bar.py:1409
+    bar, /path/to/baz.py:681
+      bar, /path/to/foo.py:340
+
+Num of Calls: 1, Memory Usage: 0.006329681724309921 GiB
+baz, /path/to/baz.py:1315
+  baz, /path/to/bar.py:912
+    foo, /path/to/bar.py:451
+      bar, /path/to/foo.py:1827
+
+Num of Calls: 1, Memory Usage: 0.0016076480969786644 GiB
+baz, /path/to/bar.py:836
+  baz, /path/to/bar.py:1494
+    foo, /path/to/foo.py:1360
+      foo, /path/to/bar.py:1551
