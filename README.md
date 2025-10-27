@@ -161,6 +161,8 @@ See the [CONTRIBUTING](CONTRIBUTING.md) file for how to help out.
 - [Zizeng Meng](https://github.com/mzzchy)
 - [Aaron Shi](https://github.com/aaronenyeshi)
 - [Chuanhao Zhuge](https://github.com/chuanhaozhuge)
+- [Chenguang Zhu](https://github.com/Chenguang-Zhu)
+- [Wei Sun](https://github.com/HugeEngine)
 
 
 ## License
