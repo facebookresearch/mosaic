@@ -7,8 +7,6 @@
 # pyre-strict
 
 
-import sys
-
 import click
 from mosaic.cmd.entry_point import get_json_snapshot
 
