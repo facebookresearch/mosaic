@@ -12,12 +12,13 @@ setup(
     packages=find_packages(),
     entry_points={
         "console_scripts": [
-            "mosaic-get-memory = mosaic.cmd.get_memory_profile:main",
-            "mosaic-get-json-snapshot = mosaic.cmd.get_json_snapshot:main",
+            "mosaic_get_memory = mosaic.cmd.get_memory_profile:main",
+            "mosaic_get_json_snapshot = mosaic.cmd.get_json_snapshot:main",
             "mosaic_usage_by_annotation_stage = mosaic.cmd.mosaic_usage_by_annotation_stage:main",
             "mosaic_get_memory_usage_diff = mosaic.cmd.mosaic_get_memory_usage_diff:main",
             "mosaic_get_memory_usage_peak = mosaic.cmd.mosaic_get_memory_usage_peak:main",
             "mosaic_get_memory_usage = mosaic.cmd.mosaic_get_memory_usage:main",
+            "mosaic_per_file_memory_snapshot_analysis = mosaic.cmd.mosaic_per_file_memory_snapshot_analysis:main",
         ],
     },
 )
