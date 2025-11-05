@@ -376,6 +376,9 @@ class MemorySnapshot(SnapshotLoader):
             if end_time and time_us > end_time:
                 break
 
+            if "addr" not in event:
+                continue
+
             cur_addr = event["addr"]
             cur_action = event["action"]
             cur_size = event["size"]
@@ -412,6 +415,9 @@ class MemorySnapshot(SnapshotLoader):
 
             if end_time and time_us > end_time:
                 break
+
+            if "addr" not in event:
+                continue
 
             cur_addr = event["addr"]
             cur_action = event["action"]
