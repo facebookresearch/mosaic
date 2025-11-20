@@ -65,6 +65,7 @@ class MemorySnapshot(SnapshotLoader):
         custom_rules: Optional[Dict[str, str]] = None,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
+        preserve_allocation_order: bool = False,
     ) -> None:
         if not profile_types:
             profile_types = ["categories"]
@@ -89,7 +90,9 @@ class MemorySnapshot(SnapshotLoader):
             )
         elif opt == "alloc_history":
             self._stat_memory_usage_categorization(
-                profile_types=profile_types, custom_rules=custom_rules
+                profile_types=profile_types,
+                custom_rules=custom_rules,
+                preserve_allocation_order=preserve_allocation_order,
             )
         else:
             logging.error("Invalid option, please check the options")
@@ -255,8 +258,11 @@ class MemorySnapshot(SnapshotLoader):
         device_idx: int = 0,
         start: int = -1,
         end: int = -1,
+        preserve_allocation_order: bool = False,
     ) -> None:
-        memory_usage: MemoryUsage = MemoryUsage(save_profile=True)
+        memory_usage: MemoryUsage = MemoryUsage(
+            save_profile=True, track_allocation_order=preserve_allocation_order
+        )
         self.memory_usage_history: dict[int, MemoryUsage] = {}
         self.max_memory_usage: MemoryUsage = MemoryUsage()
         self.call_stack: dict[int, str] = {}

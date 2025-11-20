@@ -177,6 +177,179 @@ class MemoryEvent:
     alloc_type: Optional[AllocationType] = None
 
 
+@dataclass
+class CategoryStackElement:
+    """
+    Represents an aggregated segment of memory allocations for a single category.
+    Maintains the total size and tracks individual allocations tied to this segment.
+    """
+
+    category: str  # Category name (depends on profile type)
+    total_size: float  # Total memory size in bytes for this stack element
+    allocation_ids: set[int]  # Set of allocation IDs tied to this segment
+
+
+class CategoryStackOrderTracker:
+    """
+    Optimized tracker that maintains a stack of aggregated category segments.
+
+    Instead of tracking every individual allocation, this tracker aggregates consecutive
+    allocations of the same category into stack elements. This dramatically reduces
+    memory usage and improves plotting performance.
+
+    Key properties:
+    - When allocations occur for the same category as the top of stack, they're added to that element
+    - When allocations occur for a different category, a new stack element is created
+    - Stack elements can be removed from anywhere when all their allocations are freed
+    - Uses a dictionary to track which stack element each allocation belongs to
+    """
+
+    def __init__(self) -> None:
+        # Ordered list of category stack elements (maintains temporal ordering)
+        self.stack: list[CategoryStackElement] = []
+
+        # Maps address to (stack_index, allocation_id, size, category)
+        self.addr_to_info: dict[int, tuple[int, int, float, str]] = {}
+
+        # Counter for assigning unique allocation IDs
+        self.allocation_counter: int = 0
+
+    def track_allocation(self, evt: TraceEvent, category: str) -> int:
+        """
+        Track a new allocation and add it to the appropriate stack element.
+
+        Only adds to the top stack element if it matches the category.
+        Otherwise, always creates a new stack element on top.
+
+        Args:
+            evt: The trace event for this allocation
+            category: The category string for this allocation
+
+        Returns:
+            The unique allocation_id assigned to this allocation
+        """
+        allocation_id = self.allocation_counter
+        self.allocation_counter += 1
+
+        # Check if we can add to existing top stack element
+        if self.stack and self.stack[-1].category == category:
+            # Same category as top of stack - add to existing element
+            stack_idx = len(self.stack) - 1
+            self.stack[-1].total_size += evt.size
+            self.stack[-1].allocation_ids.add(allocation_id)
+        else:
+            # Different category or empty stack - always create new element
+            new_element = CategoryStackElement(
+                category=category,
+                total_size=evt.size,
+                allocation_ids={allocation_id},
+            )
+            self.stack.append(new_element)
+            stack_idx = len(self.stack) - 1
+
+        # Track this allocation's location
+        self.addr_to_info[evt.addr] = (stack_idx, allocation_id, evt.size, category)
+
+        return allocation_id
+
+    def track_deallocation(self, addr: int) -> Optional[int]:
+        """
+        Track a deallocation and update the corresponding stack element.
+        Remove the stack element if all its allocations have been freed.
+        If removal results in adjacent elements with the same category, merge them.
+
+        Args:
+            addr: The memory address being freed
+
+        Returns:
+            The allocation_id that was freed, or None if address wasn't tracked
+        """
+        if addr not in self.addr_to_info:
+            return None
+
+        stack_idx, allocation_id, size, category = self.addr_to_info.pop(addr)
+
+        # Update the stack element
+        if stack_idx < len(self.stack):
+            element = self.stack[stack_idx]
+            element.total_size -= size
+            element.allocation_ids.discard(allocation_id)
+
+            # If this stack element is now empty, remove it
+            if len(element.allocation_ids) == 0:
+                self.stack.pop(stack_idx)
+
+                # Check if we should merge adjacent elements with the same category
+                # After removing stack_idx, elements at (stack_idx-1) and stack_idx are now adjacent
+                # Note: the element now at position stack_idx was originally at stack_idx+1
+                if (
+                    stack_idx > 0
+                    and stack_idx < len(self.stack)
+                    and self.stack[stack_idx - 1].category
+                    == self.stack[stack_idx].category
+                ):
+                    # Merge stack_idx into stack_idx-1
+                    prev_element = self.stack[stack_idx - 1]
+                    curr_element = self.stack[stack_idx]
+
+                    prev_element.total_size += curr_element.total_size
+                    prev_element.allocation_ids.update(curr_element.allocation_ids)
+
+                    # Remove the current element (at stack_idx)
+                    self.stack.pop(stack_idx)
+
+                    # Update indices in addr_to_info
+                    # Remember: old_idx values are from BEFORE the first pop(stack_idx)
+                    # - Element at original stack_idx was removed (empty)
+                    # - Element at original stack_idx+1 is being merged into stack_idx-1
+                    # - Elements at original stack_idx+2+ need to shift down by 2
+                    for addr_key in list(self.addr_to_info.keys()):
+                        old_idx, alloc_id, alloc_size, alloc_cat = self.addr_to_info[
+                            addr_key
+                        ]
+                        if old_idx == stack_idx + 1:
+                            # Move to merged element at stack_idx-1
+                            self.addr_to_info[addr_key] = (
+                                stack_idx - 1,
+                                alloc_id,
+                                alloc_size,
+                                alloc_cat,
+                            )
+                        elif old_idx > stack_idx + 1:
+                            # Allocations from elements after the merged one
+                            # Need to shift down by 2 (one for empty removal, one for merge)
+                            self.addr_to_info[addr_key] = (
+                                old_idx - 2,
+                                alloc_id,
+                                alloc_size,
+                                alloc_cat,
+                            )
+                else:
+                    # No merge needed, just update indices for elements after the removed one
+                    for addr_key in list(self.addr_to_info.keys()):
+                        old_idx, alloc_id, alloc_size, alloc_cat = self.addr_to_info[
+                            addr_key
+                        ]
+                        if old_idx > stack_idx:
+                            self.addr_to_info[addr_key] = (
+                                old_idx - 1,
+                                alloc_id,
+                                alloc_size,
+                                alloc_cat,
+                            )
+
+        return allocation_id
+
+    def get_current_stack_snapshot(self) -> list[tuple[str, float]]:
+        """
+        Get the current state of the stack as a list of (category, size).
+
+        Returns:
+            List of tuples representing the current stack state
+        """
+        return [(element.category, element.total_size) for element in self.stack]
+
+
 class BaseMemoryUsage:
     def __init__(self) -> None:
         self.active_alloc_events: dict[int, TraceEvent] = {}
@@ -234,7 +407,9 @@ class FloatMemoryUsage(BaseMemoryUsage):
 
 
 class MemoryUsage(BaseMemoryUsage):
-    def __init__(self, save_profile: bool = False) -> None:
+    def __init__(
+        self, save_profile: bool = False, track_allocation_order: bool = False
+    ) -> None:
         super().__init__()
 
         # Flag to determine if we should save the categorization profile or not
@@ -243,9 +418,36 @@ class MemoryUsage(BaseMemoryUsage):
         # Custom profile tracking
         self.per_custom_alloc_sum: dict[str, float] = defaultdict(float)
 
+        # Temporal tracking - use optimized CategoryStackOrderTracker
+        self.track_allocation_order = track_allocation_order
+        self.category_stack_tracker: Optional[CategoryStackOrderTracker] = None
+        # Snapshot of stack state at this point in time (for history entries)
+        self.stack_snapshot: Optional[list[tuple[str, float]]] = None
+        if track_allocation_order:
+            self.category_stack_tracker = CategoryStackOrderTracker()
+
         # These values only used when no profile saved (needed to lower memory usage)
         self.alloc_usage = 0
         self.reserved_usage = 0
+
+        # Performance tracking
+        self._update_count = 0
+
+        # Track profile types for category determination
+        self._profile_types: List[str] = []
+
+    def _get_category_for_event(self, evt: TraceEvent, profile_types: List[str]) -> str:
+        # TODO: Enable concurrently categorizing events for multiple profile types
+        if "categories" in profile_types:
+            return evt.classification.name
+        elif "annotations" in profile_types:
+            return evt.annotation
+        elif "compile_context" in profile_types:
+            return evt.compile_context
+        elif "custom" in profile_types and hasattr(evt, "custom_category"):
+            return evt.custom_category
+        else:
+            return "unknown"
 
     def _update_alloc_with_profile(
         self, evt: TraceEvent, profile_types: List[str]
@@ -260,6 +462,11 @@ class MemoryUsage(BaseMemoryUsage):
                 self.per_compile_context_alloc_sum[evt.compile_context] += evt.size
             if "custom" in profile_types and hasattr(evt, "custom_category"):
                 self.per_custom_alloc_sum[evt.custom_category] += evt.size
+
+            # Track in category stack if enabled
+            category = self._get_category_for_event(evt, profile_types)
+            if self.category_stack_tracker is not None:
+                self.category_stack_tracker.track_allocation(evt, category)
         else:
             logger.warning(f"Double alloc at addr: {evt.addr}")
 
@@ -284,6 +491,11 @@ class MemoryUsage(BaseMemoryUsage):
                 self.per_compile_context_alloc_sum[compile_context] -= evt.size
             if "custom" in profile_types and hasattr(alloc_evt, "custom_category"):
                 self.per_custom_alloc_sum[alloc_evt.custom_category] -= evt.size
+
+            # Track deallocation in category stack if enabled
+            if self.category_stack_tracker is not None:
+                self.category_stack_tracker.track_deallocation(evt.addr)
+
             if evt.addr in self.active_alloc_events:
                 del self.active_alloc_events[evt.addr]
         else:
@@ -378,6 +590,20 @@ class MemoryUsage(BaseMemoryUsage):
         )
         new_instance.per_custom_alloc_sum = self.per_custom_alloc_sum.copy()
         new_instance.save_profile = self.save_profile
+        new_instance.track_allocation_order = self.track_allocation_order
+
+        # For temporal tracking, capture the current stack snapshot
+        # Don't share the tracker reference - instead store a snapshot
+        new_instance.category_stack_tracker = None  # Don't share the reference
+
+        # Capture the current stack state as a snapshot for this timestamp
+        if self.category_stack_tracker is not None:
+            new_instance.stack_snapshot = (
+                self.category_stack_tracker.get_current_stack_snapshot()
+            )
+        else:
+            new_instance.stack_snapshot = None
+
         return new_instance
 
     def __str__(self) -> str:
