@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from mosaic.libmosaic.analyzer.memory_abstract import MemoryAbstract
 from mosaic.libmosaic.utils.data_utils import MemoryEvent
-from mosaic.libmosaic.utils.plotting import ProfilerPlotter
+from mosaic.libmosaic.utils.profiler_plotter import ProfilerPlotter
 from mosaic.libmosaic.utils.snapshot_utils import (
     find_memory_snapshot_peak_call_stack_diffs,
 )
@@ -239,6 +239,7 @@ def get_memory_profile(
     sampling_rate: int = 1,
     start_idx: int = 0,
     end_idx: int = sys.maxsize,
+    preserve_allocation_order: bool = False,
 ) -> MemoryAbstract:
     """
     Generate a memory profiling report with customizable categorization.
@@ -275,9 +276,6 @@ def get_memory_profile(
                     # Structured format with rules list
                     custom_profile_obj = CustomProfile(**config)
                     custom_rules = custom_profile_obj.to_dict()
-                    logging.info(
-                        f"Loaded {len(custom_profile_obj.rules)} custom profiling rules"
-                    )
                 else:
                     # Simple dictionary format (backward compatibility)
                     if isinstance(config, DictConfig):
@@ -297,10 +295,6 @@ def get_memory_profile(
                                 "Custom profile dictionary keys and values must be strings (regex patterns)"
                             )
 
-                    logging.info(
-                        f"Loaded {len(custom_rules)} custom profiling rules (simple format)"
-                    )
-
             except Exception as omegaconf_error:
                 # Fallback to JSON parsing for backward compatibility
                 try:
@@ -314,9 +308,6 @@ def get_memory_profile(
                                 "Custom profile dictionary keys and values must be strings"
                             )
 
-                    logging.info(
-                        f"Loaded {len(custom_rules)} custom profiling rules (JSON fallback)"
-                    )
                 except json.JSONDecodeError:
                     # Re-raise the original OmegaConf error with more context
                     raise ValueError(
@@ -331,7 +322,10 @@ def get_memory_profile(
     memory_abstract = MemoryAbstract(memory_snapshot_file=snapshot)
     memory_abstract.load_memory_snapshot()
     memory_abstract.memory_snapshot.analyze_memory_snapshot(
-        "alloc_history", profile_types=[profile], custom_rules=custom_rules
+        "alloc_history",
+        profile_types=[profile],
+        custom_rules=custom_rules,
+        preserve_allocation_order=preserve_allocation_order,
     )
 
     peak = memory_abstract.memory_snapshot.max_memory_usage
@@ -346,6 +340,7 @@ def get_memory_profile(
         sampling_rate=sampling_rate,
         start_idx=start_idx,
         end_idx=end_idx,
+        preserve_allocation_order=preserve_allocation_order,
     )
     pp.plot(out_path)
     end_time = time.time()
