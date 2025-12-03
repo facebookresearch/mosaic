@@ -155,6 +155,8 @@ class TraceEvent:
         )
 
         del raw_modified["frames"]
+        raw_modified.pop("user_metadata", None)
+
         return cls(
             **raw_modified,
             classification=classification,
