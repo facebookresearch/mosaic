@@ -78,8 +78,11 @@ memory_abstract.load_memory_snapshot()
 
 # Analyze peak memory usage
 memory_abstract.memory_snapshot.analyze_memory_snapshot(opt="memory_peak")
-peak_memory = memory_abstract.memory_snapshot.memory_peak
-print(f"Peak memory: {peak_memory / 1024**3:.2f} GiB")
+dynamic_peak_memory = memory_abstract.memory_snapshot.dynamic_memory_peak
+static_memory = memory_abstract.memory_snapshot.static_memory
+overall_peak_memory = dynamic_peak_memory + static_memory
+print(f"Peak dynamic memory: {dynamic_peak_memory / 1024**3:.2f} GiB")
+print(f"Peak overall memory: {overall_peak_memory / 1024**3:.2f} GiB")
 ```
 
 ### Custom Profiling

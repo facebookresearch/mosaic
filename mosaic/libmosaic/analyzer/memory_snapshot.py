@@ -45,11 +45,12 @@ class MemorySnapshot(SnapshotLoader):
         self.memory_usage_history: dict[int, BaseMemoryUsage] = {}
         self.max_memory_usage: BaseMemoryUsage = FloatMemoryUsage(0.0)
         self.call_stack: dict[object, str] = {}
-        self.memory_peak = -1
+        self.dynamic_memory_peak = -1
         self.memory_usage: dict[str, float] = {}
         self.memory_usage_call_stack: dict[int, dict[str, Any]] = {}
         self.call_stack_hash_set: dict[int, MemoryEvent] = {}
         self.max_allocation_info: Allocation = Allocation("", "", 0)
+        self.static_memory = 0
 
     def stat_memory_usage_range(
         self, device_idx: int = 0, start: int = -1, end: int = -1
@@ -70,13 +71,16 @@ class MemorySnapshot(SnapshotLoader):
         if not profile_types:
             profile_types = ["categories"]
         if opt == "memory_peak":
-            self.memory_usage_call_stack, self.memory_peak, self.max_allocation_info = (
-                self._get_memory_usage_peak(
-                    allocation_str=allocation,
-                    action=action,
-                    start_time=start_time,
-                    end_time=end_time,
-                )
+            (
+                self.memory_usage_call_stack,
+                self.dynamic_memory_peak,
+                self.max_allocation_info,
+                self.static_memory,
+            ) = self._get_memory_usage_peak(
+                allocation_str=allocation,
+                action=action,
+                start_time=start_time,
+                end_time=end_time,
             )
             self._stat_call_stack()
             self.call_stack_hash_set = order_call_stack_by_memory_size(
@@ -348,9 +352,9 @@ class MemorySnapshot(SnapshotLoader):
         action: str = "",
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-    ) -> Tuple[Dict[int, Dict[str, Any]], int, Allocation]:
+    ) -> Tuple[Dict[int, Dict[str, Any]], int, Allocation, int]:
         usage = 0
-        memory_peak = 0
+        dynamic_memory_peak = 0
         snapshot = {}
         max_snapshot = {}
         version = defaultdict(int)
@@ -369,6 +373,9 @@ class MemorySnapshot(SnapshotLoader):
             0,
         )
         trace_events = self._get_pytorch_memory_allocator_event_trace()
+        static_memory_alloc_size = self._get_static_memory_usage(
+            self.snapshot_data, trace_events
+        )
 
         if not trace_events:
             logging.info("No device traces found")
@@ -401,7 +408,7 @@ class MemorySnapshot(SnapshotLoader):
             if start_time and time_us < start_time:
                 continue
 
-            memory_peak = max(memory_peak, usage)
+            dynamic_memory_peak = max(dynamic_memory_peak, usage)
 
             if (
                 find_allocation.addr
@@ -446,7 +453,7 @@ class MemorySnapshot(SnapshotLoader):
             if start_time and time_us < start_time:
                 continue
 
-            if usage == memory_peak:
+            if usage == dynamic_memory_peak:
                 max_allocation_addr = hex_addr
                 max_allocation_action = cur_action
                 max_allocation_size = cur_size
@@ -468,13 +475,24 @@ class MemorySnapshot(SnapshotLoader):
                 version[hex_addr] += 1
 
         logging.info(
-            f"Total Peak Memory Usage (Relative to Start): {memory_peak / 1024 / 1024 / 1024} GiB at {max_allocation_addr}_{version[hex_addr]} ({max_allocation_action}) - size {max_allocation_size} bytes at {max_allocation_time} us"
+            f"Total Peak Dynamic Memory Usage (Relative to Start): {dynamic_memory_peak / 1024 / 1024 / 1024} GiB at {max_allocation_addr}_{version[hex_addr]} ({max_allocation_action}) - size {max_allocation_size} bytes at {max_allocation_time} us"
+        )
+        logging.info(
+            f"Total Static Memory Usage (estimated by Pytorch visualizer): {static_memory_alloc_size / 1024 / 1024 / 1024} GiB"
+        )
+        logging.info(
+            f"Total Overall Peak Memory Usage (Dynamic + Static): {(dynamic_memory_peak + static_memory_alloc_size) / 1024 / 1024 / 1024} GiB"
         )
         max_allocation_info = Allocation(
             max_allocation_action, max_allocation_addr, version[hex_addr]
         )
 
-        return max_snapshot, memory_peak, max_allocation_info
+        return (
+            max_snapshot,
+            dynamic_memory_peak,
+            max_allocation_info,
+            static_memory_alloc_size,
+        )
 
     def _get_memory_usage(
         self,
@@ -559,3 +577,42 @@ class MemorySnapshot(SnapshotLoader):
         if device_idx < NUM_GPUS_PER_HOST:
             return self.snapshot_data["device_traces"][device_idx]
         return None
+
+    def _get_initial_active_blocks_from_snapshot_data(
+        self,
+        snapshot_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        active_blocks = {}
+        for segment in snapshot_data["segments"]:
+            for block in segment["blocks"]:
+                if block["address"] in active_blocks:
+                    raise Exception(
+                        f"Duplicate block address while finding active blocks: {block['address']}"
+                    )
+                else:
+                    if block["state"] == "active_allocated":
+                        active_blocks[block["address"]] = block
+        return active_blocks
+
+    def _get_static_memory_usage(
+        self,
+        snapshot_data: dict[str, Any],
+        trace_events: Optional[list[dict[str, Any]]],
+    ) -> int:
+        """
+        Calculates the static memory usage from a PyTorch memory snapshot.
+        Static memory usage is defined as the total size of memory blocks that remain active for the entire duration of the snapshot.
+        This is computed by summing the sizes of all blocks that persist throughout the snapshot's event window.
+        Note:
+        - If ephemeral blocks (temporary allocations) outlive the default event window of 100,000 events (configurable),
+        the calculation may underestimate or overestimate the true static memory usage.
+        """
+        active_blocks = self._get_initial_active_blocks_from_snapshot_data(
+            snapshot_data
+        )
+        if trace_events is not None:
+            for event in trace_events:
+                if event["action"] in ("alloc", "free_requested", "free_completed"):
+                    if event["addr"] in active_blocks:
+                        del active_blocks[event["addr"]]
+        return sum(active_blocks[addr]["size"] for addr in active_blocks)

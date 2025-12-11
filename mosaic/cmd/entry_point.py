@@ -164,7 +164,9 @@ def get_memory_usage_peak(
         )
     elif paste:
         create_paste(
-            f"Total Peak Memory Usage (Relative to Start): {memory_abstract.memory_snapshot.memory_peak / 1024 / 1024 / 1024} GiB\n"
+            f"Total Peak Dynamic Memory Usage (Relative to Start): {memory_abstract.memory_snapshot.dynamic_memory_peak / 1024 / 1024 / 1024} GiB\n"
+            + f"Total Static Memory Usage (estimated by Pytorch visualizer): {memory_abstract.memory_snapshot.static_memory / 1024 / 1024 / 1024} GiB\n"
+            + f"Total Overall Peak Memory Usage (Dynamic + Static): {(memory_abstract.memory_snapshot.dynamic_memory_peak + memory_abstract.memory_snapshot.static_memory) / 1024 / 1024 / 1024} GiB\n"
             + get_printable_memory_event_set(
                 memory_abstract.memory_snapshot.call_stack_hash_set
             )

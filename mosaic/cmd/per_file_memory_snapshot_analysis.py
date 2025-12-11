@@ -133,7 +133,9 @@ def analyze_single(
     ]
 
     content = (
-        f"Total Peak Memory Usage (Relative to Start): {memory_abstract.memory_snapshot.memory_peak / 1024 / 1024 / 1024} GiB\n"
+        f"Total Peak Memory Usage (Relative to Start): {memory_abstract.memory_snapshot.dynamic_memory_peak / 1024 / 1024 / 1024} GiB\n"
+        + f"Total Static Memory Usage (estimated by Pytorch visualizer): {memory_abstract.memory_snapshot.static_memory / 1024 / 1024 / 1024} GiB\n"
+        + f"Total Overall Peak Memory Usage (Dynamic + Static): {(memory_abstract.memory_snapshot.dynamic_memory_peak + memory_abstract.memory_snapshot.static_memory) / 1024 / 1024 / 1024} GiB\n"
         + analyzer.get_printable_classification_info(
             output_dataframes,
             output_titles,
