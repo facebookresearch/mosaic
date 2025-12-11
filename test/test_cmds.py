@@ -143,7 +143,7 @@ class TestMemoryEndtoEndEntryPoints(TestCase):
         )
         self.assertEqual(
             EXPECTED_MEM_PEAK,
-            memory_usage_peak.memory_snapshot.memory_peak,
+            memory_usage_peak.memory_snapshot.dynamic_memory_peak,
         )
 
     def test_get_memory_usage_peak_with_time_range(self) -> None:
@@ -160,7 +160,7 @@ class TestMemoryEndtoEndEntryPoints(TestCase):
         )
         self.assertEqual(
             EXPECTED_MEM_PEAK_LAST_ITER,
-            memory_usage_peak.memory_snapshot.memory_peak,
+            memory_usage_peak.memory_snapshot.dynamic_memory_peak,
         )
         self.assertEqual(
             EXPECTED_MAX_ALLOCATION_ADDRESS_LAST_ITER,
@@ -189,7 +189,7 @@ class TestMemoryEndtoEndEntryPoints(TestCase):
         EXPECTED_MEM_PEAK_INVALID_VALUE = -1
         self.assertEqual(
             EXPECTED_MEM_PEAK_INVALID_VALUE,
-            memory_usage.memory_snapshot.memory_peak,
+            memory_usage.memory_snapshot.dynamic_memory_peak,
         )
 
 
@@ -229,7 +229,7 @@ class TestMemoryPeak(TestCase):
             )
             print(absolute_peak)
             self.assertEqual(
-                EXPECTED_MEM_PEAK, memory_abstract.memory_snapshot.memory_peak
+                EXPECTED_MEM_PEAK, memory_abstract.memory_snapshot.dynamic_memory_peak
             )
             with importlib_resources.as_file(output_ref()) as test_path:
                 self.assertTrue(self.compare_string_to_file(absolute_peak, test_path))
@@ -240,7 +240,8 @@ class TestMemoryPeak(TestCase):
             )
 
             self.assertEqual(
-                EXPECTED_LOCAL_MEM_PEAK, memory_abstract.memory_snapshot.memory_peak
+                EXPECTED_LOCAL_MEM_PEAK,
+                memory_abstract.memory_snapshot.dynamic_memory_peak,
             )
 
             # Test local usage
