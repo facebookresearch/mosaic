@@ -31,7 +31,7 @@ Mosaic provides several command-line utilities:
 
 ### Get Memory Profile
 ```bash
-mosaic-get-memory --snapshot <path_to_snapshot.pickle> --out-path <output.html> --profile <profile_type>
+mosaic_get_memory_profile --snapshot <path_to_snapshot.pickle> --out-path <output.html> --profile <profile_type>
 ```
 
 Profile types:
@@ -42,7 +42,7 @@ Profile types:
 
 ### Get JSON Snapshot
 ```bash
-mosaic-get-json-snapshot --snapshot <path_to_snapshot.pickle> --output-file <output.json>
+mosaic_get_json_snapshot --snapshot <path_to_snapshot.pickle> --output-file <output.json>
 ```
 
 ### Get Memory Usage
@@ -62,7 +62,13 @@ mosaic_get_memory_usage_diff --snapshot-base <base.pickle> --snapshot-diff <diff
 
 ### Get Memory Usage by Annotation Stage
 ```bash
-mosaic_usage_by_annotation_stage --snapshot <path_to_snapshot.pickle> --annotation <annotation_name>
+mosaic_get_memory_usage_by_annotation_stage --snapshot <path_to_snapshot.pickle> --annotation <annotation_name>
+```
+
+### Per-File Memory Snapshot Analysis
+```bash
+mosaic_per_file_memory_snapshot_analysis analyze --snapshot <path_to_snapshot.pickle> --file-path <path_to_file.py>
+mosaic_per_file_memory_snapshot_analysis compare --base-snapshot <base.pickle> --diff-snapshot <diff.pickle> --file-path <path_to_file.py>
 ```
 
 ## Python API
