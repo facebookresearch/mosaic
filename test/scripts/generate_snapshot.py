@@ -48,7 +48,7 @@ def generate_device_events(n, overlap_chance=0.5):
     events = []
     active_allocs = []
     current_time = int(time.time() * 1e6)
-    for i in range(n):
+    for _ in range(n):
         # Decide whether to free an active allocation (overlap) or create a new one
         if active_allocs and random.random() < overlap_chance:
             # Free a random active allocation
