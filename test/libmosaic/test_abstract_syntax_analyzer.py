@@ -9,10 +9,8 @@
 from unittest.mock import mock_open
 
 import pandas as pd
-
 from later.unittest import TestCase
 from later.unittest.mock import MagicMock, patch
-
 from mosaic.libmosaic.analyzer.abstract_syntax_analyzer import AbstractSyntaxAnalyzer
 from mosaic.libmosaic.analyzer.memory_snapshot import MemorySnapshot
 from mosaic.libmosaic.utils.data_utils import MemoryEvent

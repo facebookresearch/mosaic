@@ -9,7 +9,6 @@
 from later.unittest import TestCase
 from later.unittest.mock import MagicMock, patch
 from mosaic.libmosaic.utils.data_utils import MemoryEvent
-
 from mosaic.libmosaic.utils.utils import (
     get_printable_memory_event_set,
     get_printable_stack_trace,

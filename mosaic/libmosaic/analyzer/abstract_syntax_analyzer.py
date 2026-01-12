@@ -14,7 +14,6 @@ from io import StringIO
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
-
 from mosaic.libmosaic.analyzer.memory_snapshot import MemorySnapshot
 from mosaic.libmosaic.utils.data_utils import Frame, MemoryEvent
 from tabulate import tabulate
@@ -566,7 +565,7 @@ class AbstractSyntaxAnalyzer:
         """
         output = StringIO()
         for i, df in enumerate(dfs):
-            title = f"DataFrame {i+1}" if titles is None else titles[i]
+            title = f"DataFrame {i + 1}" if titles is None else titles[i]
             output.write(f"\n{title}\n{'=' * len(title)}\n")
             table = tabulate(
                 df.head(max_rows).to_dict(orient="records"),
@@ -624,7 +623,7 @@ class AbstractSyntaxAnalyzer:
                 self.memory_events_df, i + 1
             ) / (1024 * 1024 * 1024)
             memory_usage = f"{memory_usage_gb:.3f} GiB" if memory_usage_gb > 0 else ""
-            output.write(f"{i+1:>5} {memory_usage:<15} | {line}\n")
+            output.write(f"{i + 1:>5} {memory_usage:<15} | {line}\n")
 
         return output.getvalue()
 

@@ -7,7 +7,6 @@
 # pyre-strict
 
 from later.unittest import TestCase
-
 from mosaic.cmd.entry_point import get_memory_profile
 from mosaic.cmd.get_memory_profile import main
 from mosaic.libmosaic.utils.data_utils import (

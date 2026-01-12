@@ -20,7 +20,6 @@ from mosaic.libmosaic.utils.profiler_plotter import ProfilerPlotter
 from mosaic.libmosaic.utils.snapshot_utils import (
     find_memory_snapshot_peak_call_stack_diffs,
 )
-
 from mosaic.libmosaic.utils.upload_utils import (
     create_paste,
     get_jobname,
@@ -28,12 +27,10 @@ from mosaic.libmosaic.utils.upload_utils import (
     get_upload_folder,
     upload_report,
 )
-
 from mosaic.libmosaic.utils.utils import (
     get_memory_peak_event_in_json,
     get_printable_memory_event_set,
 )
-
 from omegaconf import DictConfig, OmegaConf
 
 

@@ -9,7 +9,6 @@
 
 import enum
 import logging
-
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Union
@@ -575,11 +574,11 @@ class MemoryUsage(BaseMemoryUsage):
 
     def _convert_bytes(self, size: float) -> str:
         if size >= 1024**3:
-            return f"{round(size/1024**3, 2)}GiB"
+            return f"{round(size / 1024**3, 2)}GiB"
         elif size >= 1024**2:
-            return f"{round(size/1024**2, 2)}MB"
+            return f"{round(size / 1024**2, 2)}MB"
         elif size >= 1024:
-            return f"{round(size/1024, 2)}KB"
+            return f"{round(size / 1024, 2)}KB"
         else:
             return f"{size}B"
 

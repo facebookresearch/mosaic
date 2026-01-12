@@ -10,7 +10,6 @@ import os
 import tempfile
 
 import importlib_resources
-
 from later.unittest import TestCase
 from mosaic.cmd.entry_point import (
     get_memory_profile,
@@ -20,7 +19,6 @@ from mosaic.cmd.entry_point import (
     get_memory_usage_peak,
 )
 from mosaic.libmosaic.analyzer.memory_abstract import MemoryAbstract
-
 from mosaic.libmosaic.utils.data_utils import AllocationType, MemoryUsage
 from mosaic.libmosaic.utils.utils import get_printable_memory_event_set
 

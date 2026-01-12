@@ -14,7 +14,6 @@ It is used when MemorySnapshot is not available for all the jobs.
 
 import copy
 import logging
-
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Set, Tuple
 

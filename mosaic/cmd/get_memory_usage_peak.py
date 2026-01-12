@@ -7,7 +7,6 @@
 # pyre-strict
 
 import click
-
 from mosaic.cmd.entry_point import get_memory_usage_peak
 
 

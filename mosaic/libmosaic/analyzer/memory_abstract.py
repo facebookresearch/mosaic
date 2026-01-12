@@ -11,7 +11,6 @@ import logging
 from typing import Optional
 
 from mosaic.libmosaic.analyzer.gpu_trace import GPUTrace
-
 from mosaic.libmosaic.analyzer.memory_snapshot import MemorySnapshot
 
 
