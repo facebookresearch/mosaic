@@ -10,6 +10,14 @@ setup(
     name="mosaic",
     version="0.1.0",
     packages=find_packages(),
+    install_requires=[
+        "altair>=5.5.0",
+        "click>=8.3.0",
+        "mcp>=1.0.0",
+        "omegaconf>=2.3.0",
+        "pandas>=2.3.3",
+        "tabulate>=0.9.0",
+    ],
     entry_points={
         "console_scripts": [
             "mosaic_get_memory_profile = mosaic.cmd.get_memory_profile:main",
@@ -19,6 +27,7 @@ setup(
             "mosaic_get_memory_usage_peak = mosaic.cmd.get_memory_usage_peak:main",
             "mosaic_get_memory_usage = mosaic.cmd.get_memory_usage:main",
             "mosaic_per_file_memory_snapshot_analysis = mosaic.cmd.per_file_memory_snapshot_analysis:per_file_memory_analysis",
+            "mosaic_mcp = mosaic.mcp.server:cli",
         ],
     },
 )

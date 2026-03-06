@@ -71,6 +71,25 @@ mosaic_per_file_memory_snapshot_analysis analyze --snapshot <path_to_snapshot.pi
 mosaic_per_file_memory_snapshot_analysis compare --base-snapshot <base.pickle> --diff-snapshot <diff.pickle> --file-path <path_to_file.py>
 ```
 
+### MCP Server (Standard SDK)
+Mosaic also provides a standard MCP server entrypoint:
+
+```bash
+mosaic_mcp
+```
+
+This starts the server over stdio. For Claude Code, you can register it with:
+
+```bash
+claude mcp add mosaic mosaic_mcp
+```
+
+For fbcode/internal workflows, you can also run the Buck target directly:
+
+```bash
+buck2 run //mosaic/mcp:mosaic_mcp_standard --
+```
+
 ## Python API
 
 ### Basic Usage
