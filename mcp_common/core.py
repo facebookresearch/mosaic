@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import tempfile
 from dataclasses import asdict, is_dataclass
 from typing import Any, Optional
@@ -24,6 +26,13 @@ _GIB = float(1024**3)
 
 def _bytes_to_gib(num_bytes: float) -> float:
     return num_bytes / _GIB
+
+
+@contextlib.contextmanager
+def _suppress_stdout() -> Any:
+    """Prevent helper CLI utilities from writing to MCP stdout channel."""
+    with contextlib.redirect_stdout(io.StringIO()):
+        yield
 
 
 def _serialize_obj(value: Any) -> Any:
@@ -71,15 +80,16 @@ def _error_payload(
 def analyze_peak_memory(snapshot_path: str, print_stack: bool = True) -> dict[str, Any]:
     """Analyze peak memory usage and return stack traces contributing to peak."""
     try:
-        memory_abstract = get_memory_usage_peak(
-            snapshot=snapshot_path,
-            trace="",
-            allocation="",
-            action="alloc",
-            paste=False,
-            print_stack=print_stack,
-            upload_result=False,
-        )
+        with _suppress_stdout():
+            memory_abstract = get_memory_usage_peak(
+                snapshot=snapshot_path,
+                trace="",
+                allocation="",
+                action="alloc",
+                paste=False,
+                print_stack=print_stack,
+                upload_result=False,
+            )
 
         memory_snapshot = memory_abstract.memory_snapshot
         return {
@@ -116,11 +126,12 @@ def analyze_categorical(snapshot_path: str) -> dict[str, Any]:
     """Analyze memory usage by allocation categories."""
     try:
         with tempfile.NamedTemporaryFile(suffix=".html", delete=True) as output_file:
-            memory_abstract = get_memory_profile(
-                snapshot=snapshot_path,
-                out_path=output_file.name,
-                profile="categories",
-            )
+            with _suppress_stdout():
+                memory_abstract = get_memory_profile(
+                    snapshot=snapshot_path,
+                    out_path=output_file.name,
+                    profile="categories",
+                )
 
         peak_usage = memory_abstract.memory_snapshot.max_memory_usage
         category_usage = {
@@ -158,11 +169,12 @@ def analyze_annotations(
     """Analyze memory usage by annotation stage, optionally filtered by annotation."""
     try:
         annotation_filter: tuple[str, ...] = (annotation,) if annotation else ()
-        usage_by_annotation = get_memory_usage_by_annotation_stage(
-            snapshot=snapshot_path,
-            annotation=annotation_filter,
-            paste=False,
-        )
+        with _suppress_stdout():
+            usage_by_annotation = get_memory_usage_by_annotation_stage(
+                snapshot=snapshot_path,
+                annotation=annotation_filter,
+                paste=False,
+            )
 
         stages = []
         for stage_name, (annotation_data, memory_bytes) in usage_by_annotation.items():
@@ -190,11 +202,12 @@ def analyze_annotations(
 def analyze_diff(snapshot_path_1: str, snapshot_path_2: str) -> dict[str, Any]:
     """Compute memory peak call-stack diff between two snapshots."""
     try:
-        diff = get_memory_usage_diff(
-            snapshot_base=snapshot_path_1,
-            snapshot_diff=snapshot_path_2,
-            paste=False,
-        )
+        with _suppress_stdout():
+            diff = get_memory_usage_diff(
+                snapshot_base=snapshot_path_1,
+                snapshot_diff=snapshot_path_2,
+                paste=False,
+            )
 
         return {
             "status": "ok",
