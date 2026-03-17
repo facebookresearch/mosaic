@@ -78,16 +78,14 @@ Mosaic also provides a standard MCP server entrypoint:
 mosaic_mcp
 ```
 
-This starts the server over stdio. For Claude Code, you can register it with:
+This starts the server over stdio. To use with Claude Code, set up a virtualenv from the `mosaic` directory:
 
 ```bash
-claude mcp add mosaic mosaic_mcp
-```
-
-For fbcode/internal workflows, you can also run the Buck target directly:
-
-```bash
-buck2 run //mosaic/mcp:mosaic_mcp_standard --
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+claude mcp add --scope project mosaic -- "$PWD/.venv/bin/mosaic_mcp"
+claude mcp list
 ```
 
 ## Python API
