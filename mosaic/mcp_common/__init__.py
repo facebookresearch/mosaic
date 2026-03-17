@@ -11,6 +11,7 @@ from .core import (
     analyze_categorical,
     analyze_diff,
     analyze_peak_memory,
+    compare_snapshots,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "analyze_categorical",
     "analyze_annotations",
     "analyze_diff",
+    "compare_snapshots",
 ]
