@@ -4,12 +4,26 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from setuptools import find_packages, setup
+from setuptools import setup
 
 setup(
     name="mosaic",
     version="0.1.0",
-    packages=find_packages(),
+    packages=[
+        "mosaic",
+        "mosaic.cmd",
+        "mosaic.libmosaic",
+        "mosaic.libmosaic.analyzer",
+        "mosaic.libmosaic.utils",
+        "mosaic.mcp",
+        "mosaic.mcp_common",
+    ],
+    package_dir={
+        "mosaic.cmd": "cmd",
+        "mosaic.libmosaic": "libmosaic",
+        "mosaic.libmosaic.analyzer": "libmosaic/analyzer",
+        "mosaic.libmosaic.utils": "libmosaic/utils",
+    },
     install_requires=[
         "altair>=5.5.0",
         "click>=8.3.0",

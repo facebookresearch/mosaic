@@ -18,8 +18,8 @@ else:
     try:
         _core = importlib.import_module("mosaic.mcp_common.core")
     except ModuleNotFoundError:
-        # OSS pytest can import this module as top-level `mcp.server` from the
-        # repo root (`.../mosaic/mosaic`), where `mosaic.*` is not importable.
+        # Fallback for running directly from the repo without pip install,
+        # where `mosaic.*` may not be on the import path.
         _core = importlib.import_module("mcp_common.core")
 
 analyze_peak_memory: Callable[..., dict[str, Any]] = _core.analyze_peak_memory
