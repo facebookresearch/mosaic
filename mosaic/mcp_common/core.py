@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import re
 import tempfile
 from dataclasses import asdict, is_dataclass
 from typing import Any, Optional
@@ -45,10 +46,34 @@ def _serialize_obj(value: Any) -> Any:
     return value
 
 
-def _serialize_peak_events(call_stack_hash_set: dict[int, Any]) -> list[dict[str, Any]]:
+_PATH_PREFIX_RE: re.Pattern[str] = re.compile(
+    r".*/(?=(?:torch|torchrec|hammer|minimal_viable_ai|mosaic|aiplatform)/)"
+)
+
+_TORCH_INTERNAL_NAMES: frozenset[str] = frozenset({"_call_impl", "_wrapped_call_impl"})
+
+
+def _simplify_frame(frame: dict[str, Any]) -> dict[str, Any]:
+    filename = frame.get("filename", "")
+    if filename:
+        frame = {**frame, "filename": _PATH_PREFIX_RE.sub("", filename)}
+    return frame
+
+
+def _serialize_peak_events(
+    call_stack_hash_set: dict[int, Any],
+    collapse_torch_internals: bool = True,
+) -> list[dict[str, Any]]:
     events = []
     for callstack_hash, event in call_stack_hash_set.items():
         event_dict = _serialize_obj(event)
+        raw_stack = event_dict.get("call_stack", [])
+        stack = []
+        for frame in raw_stack:
+            frame = _simplify_frame(frame)
+            if collapse_torch_internals and frame.get("name") in _TORCH_INTERNAL_NAMES:
+                continue
+            stack.append(frame)
         events.append(
             {
                 "callstack_hash": callstack_hash,
@@ -57,7 +82,7 @@ def _serialize_peak_events(call_stack_hash_set: dict[int, Any]) -> list[dict[str
                 "memory_gib": _bytes_to_gib(float(event_dict.get("mem_size", 0.0))),
                 "memory_bytes_per_call": event_dict.get("mem_size_per_call", {}),
                 "allocation_type": event_dict.get("alloc_type"),
-                "call_stack": event_dict.get("call_stack", []),
+                "call_stack": stack,
             }
         )
     return events
@@ -77,7 +102,9 @@ def _error_payload(
     }
 
 
-def analyze_peak_memory(snapshot_path: str, print_stack: bool = True) -> dict[str, Any]:
+def analyze_peak_memory(
+    snapshot_path: str, print_stack: bool = True, top_n: int = 0
+) -> dict[str, Any]:
     """Analyze peak memory usage and return stack traces contributing to peak."""
     try:
         with _suppress_stdout():
@@ -92,6 +119,11 @@ def analyze_peak_memory(snapshot_path: str, print_stack: bool = True) -> dict[st
             )
 
         memory_snapshot = memory_abstract.memory_snapshot
+        events = _serialize_peak_events(memory_snapshot.call_stack_hash_set)
+        total_count = len(events)
+        events.sort(key=lambda e: e.get("memory_bytes", 0), reverse=True)
+        if top_n > 0:
+            events = events[:top_n]
         return {
             "status": "ok",
             "tool": "peak_memory_analysis",
@@ -114,9 +146,10 @@ def analyze_peak_memory(snapshot_path: str, print_stack: bool = True) -> dict[st
                         + memory_snapshot.static_memory
                     )
                 ),
-                "peak_event_count": len(memory_snapshot.call_stack_hash_set),
+                "peak_event_count": total_count,
+                "returned_event_count": len(events),
             },
-            "events": _serialize_peak_events(memory_snapshot.call_stack_hash_set),
+            "events": events,
         }
     except Exception as exc:
         return _error_payload("peak_memory_analysis", snapshot_path, exc)
@@ -199,28 +232,175 @@ def analyze_annotations(
         return _error_payload("annotation_analysis", snapshot_path, exc)
 
 
-def analyze_diff(snapshot_path_1: str, snapshot_path_2: str) -> dict[str, Any]:
-    """Compute memory peak call-stack diff between two snapshots."""
+def analyze_diff(
+    snapshot_path_1: str, snapshot_path_2: str, top_n: int = 0
+) -> dict[str, Any]:
+    """Compute bidirectional memory peak call-stack diff between two snapshots."""
     try:
         with _suppress_stdout():
-            diff = get_memory_usage_diff(
+            added_raw = get_memory_usage_diff(
                 snapshot_base=snapshot_path_1,
                 snapshot_diff=snapshot_path_2,
                 paste=False,
             )
+            removed_raw = get_memory_usage_diff(
+                snapshot_base=snapshot_path_2,
+                snapshot_diff=snapshot_path_1,
+                paste=False,
+            )
+
+        added = _serialize_peak_events(added_raw)
+        removed = _serialize_peak_events(removed_raw)
+
+        added_total = sum(e.get("memory_bytes", 0) for e in added)
+        removed_total = sum(e.get("memory_bytes", 0) for e in removed)
+
+        added.sort(key=lambda e: e.get("memory_bytes", 0), reverse=True)
+        removed.sort(key=lambda e: e.get("memory_bytes", 0), reverse=True)
+        if top_n > 0:
+            added = added[:top_n]
+            removed = removed[:top_n]
 
         return {
             "status": "ok",
             "tool": "memory_diff",
             "snapshot_path_1": snapshot_path_1,
             "snapshot_path_2": snapshot_path_2,
-            "diff_event_count": len(diff),
-            "diff_events": _serialize_peak_events(diff),
+            "summary": {
+                "added_count": len(added_raw),
+                "removed_count": len(removed_raw),
+                "added_total_bytes": added_total,
+                "added_total_gib": _bytes_to_gib(float(added_total)),
+                "removed_total_bytes": removed_total,
+                "removed_total_gib": _bytes_to_gib(float(removed_total)),
+                "net_delta_bytes": added_total - removed_total,
+                "net_delta_gib": _bytes_to_gib(float(added_total - removed_total)),
+            },
+            "added": added,
+            "removed": removed,
         }
     except Exception as exc:
         return {
             "status": "error",
             "tool": "memory_diff",
+            "snapshot_path_1": snapshot_path_1,
+            "snapshot_path_2": snapshot_path_2,
+            "error": {
+                "type": type(exc).__name__,
+                "message": str(exc),
+            },
+        }
+
+
+def compare_snapshots(
+    snapshot_path_1: str, snapshot_path_2: str, top_n: int = 10
+) -> dict[str, Any]:
+    """All-in-one comparison: peak memory, categories, and bidirectional diff."""
+    try:
+        with _suppress_stdout():
+            peak_1 = get_memory_usage_peak(
+                snapshot=snapshot_path_1,
+                trace="",
+                allocation="",
+                action="alloc",
+                paste=False,
+                print_stack=False,
+                upload_result=False,
+            )
+            peak_2 = get_memory_usage_peak(
+                snapshot=snapshot_path_2,
+                trace="",
+                allocation="",
+                action="alloc",
+                paste=False,
+                print_stack=False,
+                upload_result=False,
+            )
+
+        snap_1 = peak_1.memory_snapshot
+        snap_2 = peak_2.memory_snapshot
+        peak_1_bytes = float(snap_1.dynamic_memory_peak + snap_1.static_memory)
+        peak_2_bytes = float(snap_2.dynamic_memory_peak + snap_2.static_memory)
+
+        # Categorical profiling
+        with _suppress_stdout():
+            with tempfile.NamedTemporaryFile(suffix=".html", delete=True) as f1:
+                cat_1 = get_memory_profile(
+                    snapshot=snapshot_path_1, out_path=f1.name, profile="categories"
+                )
+            with tempfile.NamedTemporaryFile(suffix=".html", delete=True) as f2:
+                cat_2 = get_memory_profile(
+                    snapshot=snapshot_path_2, out_path=f2.name, profile="categories"
+                )
+
+        cat_1_usage = {
+            str(k): v
+            for k, v in cat_1.memory_snapshot.max_memory_usage.per_category_alloc_sum.items()
+        }
+        cat_2_usage = {
+            str(k): v
+            for k, v in cat_2.memory_snapshot.max_memory_usage.per_category_alloc_sum.items()
+        }
+        all_categories = sorted(set(cat_1_usage) | set(cat_2_usage))
+        categories = {}
+        for cat in all_categories:
+            v1 = float(cat_1_usage.get(cat, 0))
+            v2 = float(cat_2_usage.get(cat, 0))
+            categories[cat] = {
+                "snapshot_1_gib": _bytes_to_gib(v1),
+                "snapshot_2_gib": _bytes_to_gib(v2),
+                "delta_gib": _bytes_to_gib(v2 - v1),
+            }
+
+        # Bidirectional diff
+        with _suppress_stdout():
+            added_raw = get_memory_usage_diff(
+                snapshot_base=snapshot_path_1,
+                snapshot_diff=snapshot_path_2,
+                paste=False,
+            )
+            removed_raw = get_memory_usage_diff(
+                snapshot_base=snapshot_path_2,
+                snapshot_diff=snapshot_path_1,
+                paste=False,
+            )
+
+        added = _serialize_peak_events(added_raw)
+        removed = _serialize_peak_events(removed_raw)
+        added_total = sum(e.get("memory_bytes", 0) for e in added)
+        removed_total = sum(e.get("memory_bytes", 0) for e in removed)
+
+        added.sort(key=lambda e: e.get("memory_bytes", 0), reverse=True)
+        removed.sort(key=lambda e: e.get("memory_bytes", 0), reverse=True)
+        if top_n > 0:
+            added = added[:top_n]
+            removed = removed[:top_n]
+
+        return {
+            "status": "ok",
+            "tool": "compare_snapshots",
+            "snapshot_path_1": snapshot_path_1,
+            "snapshot_path_2": snapshot_path_2,
+            "peak_memory": {
+                "snapshot_1_gib": _bytes_to_gib(peak_1_bytes),
+                "snapshot_2_gib": _bytes_to_gib(peak_2_bytes),
+                "delta_gib": _bytes_to_gib(peak_2_bytes - peak_1_bytes),
+            },
+            "categories": categories,
+            "diff": {
+                "added_count": len(added_raw),
+                "removed_count": len(removed_raw),
+                "added_total_gib": _bytes_to_gib(float(added_total)),
+                "removed_total_gib": _bytes_to_gib(float(removed_total)),
+                "net_delta_gib": _bytes_to_gib(float(added_total - removed_total)),
+                "top_added": added,
+                "top_removed": removed,
+            },
+        }
+    except Exception as exc:
+        return {
+            "status": "error",
+            "tool": "compare_snapshots",
             "snapshot_path_1": snapshot_path_1,
             "snapshot_path_2": snapshot_path_2,
             "error": {

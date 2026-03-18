@@ -15,25 +15,37 @@ from typing import Any, Callable, TYPE_CHECKING
 if TYPE_CHECKING:
     from mosaic.mcp_common import core as _core
 else:
-    try:
-        _core = importlib.import_module("mosaic.mcp_common.core")
-    except ModuleNotFoundError:
+    _core = None
+    for module_name in (
+        "mosaic.mcp_common.core",
+        "mosaic.mosaic.mcp_common.core",
         # Fallback for running directly from the repo without pip install,
         # where `mosaic.*` may not be on the import path.
-        _core = importlib.import_module("mcp_common.core")
+        "mcp_common.core",
+    ):
+        try:
+            _core = importlib.import_module(module_name)
+            break
+        except ModuleNotFoundError:
+            continue
+    if _core is None:
+        raise ModuleNotFoundError("Unable to import mosaic MCP core module")
 
 analyze_peak_memory: Callable[..., dict[str, Any]] = _core.analyze_peak_memory
 analyze_categorical: Callable[..., dict[str, Any]] = _core.analyze_categorical
 analyze_annotations: Callable[..., dict[str, Any]] = _core.analyze_annotations
 analyze_diff: Callable[..., dict[str, Any]] = _core.analyze_diff
+compare_snapshots_fn: Callable[..., dict[str, Any]] = _core.compare_snapshots
 
 
 def _json(payload: dict[str, object]) -> str:
     return json.dumps(payload, indent=2)
 
 
-def peak_memory_analysis(snapshot_path: str, print_stack: bool = True) -> str:
-    return _json(analyze_peak_memory(snapshot_path, print_stack))
+def peak_memory_analysis(
+    snapshot_path: str, print_stack: bool = True, top_n: int = 0
+) -> str:
+    return _json(analyze_peak_memory(snapshot_path, print_stack, top_n))
 
 
 def categorical_profiling(snapshot_path: str) -> str:
@@ -44,8 +56,14 @@ def annotation_analysis(snapshot_path: str, annotation: str | None = None) -> st
     return _json(analyze_annotations(snapshot_path, annotation))
 
 
-def memory_diff(snapshot_path_1: str, snapshot_path_2: str) -> str:
-    return _json(analyze_diff(snapshot_path_1, snapshot_path_2))
+def memory_diff(snapshot_path_1: str, snapshot_path_2: str, top_n: int = 0) -> str:
+    return _json(analyze_diff(snapshot_path_1, snapshot_path_2, top_n))
+
+
+def compare_snapshots_tool(
+    snapshot_path_1: str, snapshot_path_2: str, top_n: int = 10
+) -> str:
+    return _json(compare_snapshots_fn(snapshot_path_1, snapshot_path_2, top_n))
 
 
 def _build_server() -> Any:
@@ -72,6 +90,12 @@ def _build_server() -> Any:
     mcp.tool(description="Compare two memory snapshots to identify memory imbalances.")(
         memory_diff
     )
+    mcp.tool(
+        description=(
+            "Compare two memory snapshots side-by-side: peak memory, categories, "
+            "and bidirectional diff in one call."
+        )
+    )(compare_snapshots_tool)
     return mcp
 
 
