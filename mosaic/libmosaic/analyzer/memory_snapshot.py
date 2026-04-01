@@ -152,10 +152,13 @@ class MemorySnapshot(SnapshotLoader):
                     active_memory,
                 )
                 version[f"{name_stage}"] += 1
+        # pyrefly: ignore [bad-return]
         return annotation_to_memory_usage
 
     def _convert_stack_trace_to_str(
-        self, stack_trace_dict: list[dict[str, str]]
+        self,
+        stack_trace_dict: list[dict[str, str]],
+        # pyrefly: ignore [bad-return]
     ) -> str:
         stack_trace_str = ""
         for item in stack_trace_dict:
@@ -163,6 +166,7 @@ class MemorySnapshot(SnapshotLoader):
         return stack_trace_str
         pass
 
+    # pyrefly: ignore [bad-return]
     def _convert_trace_event_to_str(self, stack_trace_dict: list[Frame]) -> str:
         stack_trace_str = ""
         for item in stack_trace_dict:
@@ -306,6 +310,7 @@ class MemorySnapshot(SnapshotLoader):
         # TODO: if we are using expandable segments, they may start using segment_map instead of segment_alloc, and segment_unmap instead of segment_free
         memory_usage: float = 0.0
         self.memory_usage_history = {}
+        # pyrefly: ignore [bad-assignment]
         self.max_memory_usage: float = 0.0
         self.call_stack = {}
 

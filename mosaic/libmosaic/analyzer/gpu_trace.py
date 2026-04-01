@@ -25,6 +25,7 @@ class GPUTrace:
 
     def register_trace_file(self, file_name: str) -> None:
         self.trace_file_name: str = file_name
+        # pyrefly: ignore [bad-assignment]
         self.trace_file_size: float = os.path.getsize(self.trace_file_name) / (
             1024 * 1024
         )
