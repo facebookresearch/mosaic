@@ -254,7 +254,9 @@ class AbstractSyntaxAnalyzer:
             self.file_path = file_path
             self.file_name = file_path.split("/")[-1]
         else:
+            # pyrefly: ignore [bad-assignment]
             self.file_path = None
+            # pyrefly: ignore [bad-assignment]
             self.file_name = file_name
 
         self.memory_snapshot = memory_snapshot

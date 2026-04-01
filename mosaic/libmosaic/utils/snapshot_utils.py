@@ -11,7 +11,9 @@ from mosaic.libmosaic.utils.data_utils import MemoryEvent
 
 # apply diff on memory call stack hash of snapshot_diff to snapshot_base
 def find_memory_snapshot_peak_call_stack_diffs(
-    snapshot_base: dict[int, MemoryEvent], snapshot_diff: dict[int, MemoryEvent]
+    snapshot_base: dict[int, MemoryEvent],
+    snapshot_diff: dict[int, MemoryEvent],
+    # pyrefly: ignore [bad-return]
 ) -> dict[int, MemoryEvent]:
     call_stack_diff = set(snapshot_diff.keys()).difference(snapshot_base.keys())
     return dict(
@@ -26,7 +28,9 @@ def find_memory_snapshot_peak_call_stack_diffs(
 
 # apply intersection on memory call stack hash of snapshot_diff and snapshot_base
 def find_memory_snapshot_peak_call_stack_intersection(
-    snapshot_base: dict[int, MemoryEvent], snapshot_diff: dict[int, MemoryEvent]
+    snapshot_base: dict[int, MemoryEvent],
+    snapshot_diff: dict[int, MemoryEvent],
+    # pyrefly: ignore [bad-return]
 ) -> dict[int, MemoryEvent]:
     call_stack_diff = set(snapshot_diff.keys()).intersection(snapshot_base.keys())
     return dict(
@@ -41,6 +45,7 @@ def find_memory_snapshot_peak_call_stack_intersection(
 
 def order_call_stack_by_memory_size(
     traces: dict[int, MemoryEvent],
+    # pyrefly: ignore [bad-return]
 ) -> dict[int, MemoryEvent]:
     return dict(sorted(traces.items(), key=lambda item: item[1].mem_size, reverse=True))
     pass

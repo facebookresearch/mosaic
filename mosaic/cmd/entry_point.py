@@ -323,6 +323,7 @@ def get_memory_profile(
     memory_abstract.memory_snapshot.analyze_memory_snapshot(
         "alloc_history",
         profile_types=[profile],
+        # pyrefly: ignore [bad-argument-type]
         custom_rules=custom_rules,
         preserve_allocation_order=preserve_allocation_order,
     )

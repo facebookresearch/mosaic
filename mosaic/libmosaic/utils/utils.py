@@ -94,6 +94,7 @@ def get_memory_peak_event_in_json(memory_event_set: Dict[int, MemoryEvent]) -> s
         )
 
     for item in details:
+        # pyrefly: ignore [unsupported-operation]
         item["memory_usage_percentage"] = item["memory_usage"] / total_memory * 100
 
     details.sort(key=lambda x: x["memory_usage"], reverse=True)
