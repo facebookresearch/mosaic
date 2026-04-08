@@ -10,7 +10,7 @@
 import enum
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields as dataclass_fields
 from typing import Any, List, Optional, Union
 
 NUM_GPUS_PER_HOST = 8
@@ -154,10 +154,19 @@ class TraceEvent:
         )
 
         del raw_modified["frames"]
-        raw_modified.pop("user_metadata", None)
+
+        # Filter to only known TraceEvent fields to prevent future breakage
+        # from new fields added to PyTorch snapshots (e.g. pool_id, user_metadata)
+        known_fields = {f.name for f in dataclass_fields(cls)}
+        explicitly_set = {"classification", "custom_category", "annotation"}
+        filtered = {
+            k: v
+            for k, v in raw_modified.items()
+            if k in known_fields and k not in explicitly_set
+        }
 
         return cls(
-            **raw_modified,
+            **filtered,
             classification=classification,
             custom_category=custom_category or "unknown",
             annotation=annotation,
