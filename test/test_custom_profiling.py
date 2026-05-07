@@ -10,6 +10,12 @@ from later.unittest import TestCase
 from mosaic.cmd.entry_point import get_memory_profile
 from mosaic.cmd.get_memory_profile import main
 from mosaic.libmosaic.utils.data_utils import (
+    _any_filename_contains,
+    _any_filename_matches_regex,
+    _any_frame_name_contains,
+    _any_frame_name_in,
+    _any_frame_name_startswith,
+    _no_frame_name_in,
     AllocationType,
     Frame,
     MemoryUsage,
@@ -349,6 +355,67 @@ class TestCustomProfilingEdgeCases(TestCase):
 
         self.assertEqual(alloc_type, AllocationType.CUSTOM)
         self.assertEqual(category, "parens")
+
+
+class TestFrameStackPredicateHelpers(TestCase):
+    """Unit tests for the small frame-stack predicate helpers used by the
+    AllocationType rule table."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        # A small synthetic stack used by every assertion below.
+        self.stack: list[Frame] = [
+            Frame(name="forward", filename="model.py", line=10),
+            Frame(name="custom_adamw", filename="optim.py", line=20),
+            Frame(name="my_kernel_v2", filename="kernel.cu", line=30),
+        ]
+
+    def test_any_filename_contains(self) -> None:
+        self.assertTrue(_any_filename_contains(self.stack, "model.py"))
+        self.assertTrue(_any_filename_contains(self.stack, "optim"))
+        self.assertFalse(_any_filename_contains(self.stack, "missing.py"))
+        # Empty stack always returns False.
+        self.assertFalse(_any_filename_contains([], "anything"))
+
+    def test_any_filename_matches_regex(self) -> None:
+        import re
+
+        cu_pattern = re.compile(r"\.cu$")
+        py_pattern = re.compile(r"^model\.py$")
+        miss_pattern = re.compile(r"^never$")
+        self.assertTrue(_any_filename_matches_regex(self.stack, cu_pattern))
+        self.assertTrue(_any_filename_matches_regex(self.stack, py_pattern))
+        self.assertFalse(_any_filename_matches_regex(self.stack, miss_pattern))
+        self.assertFalse(_any_filename_matches_regex([], cu_pattern))
+
+    def test_any_frame_name_in(self) -> None:
+        self.assertTrue(
+            _any_frame_name_in(self.stack, frozenset({"custom_adamw", "other"}))
+        )
+        self.assertFalse(
+            _any_frame_name_in(self.stack, frozenset({"never", "missing"}))
+        )
+        self.assertFalse(_any_frame_name_in([], frozenset({"forward"})))
+
+    def test_any_frame_name_contains(self) -> None:
+        self.assertTrue(_any_frame_name_contains(self.stack, "forward"))
+        self.assertTrue(_any_frame_name_contains(self.stack, "kernel"))
+        self.assertFalse(_any_frame_name_contains(self.stack, "missing"))
+        self.assertFalse(_any_frame_name_contains([], "forward"))
+
+    def test_any_frame_name_startswith(self) -> None:
+        self.assertTrue(_any_frame_name_startswith(self.stack, "forward"))
+        self.assertTrue(_any_frame_name_startswith(self.stack, "my_kernel"))
+        # "kernel" appears mid-name, so startswith should not match.
+        self.assertFalse(_any_frame_name_startswith(self.stack, "kernel"))
+        self.assertFalse(_any_frame_name_startswith([], "forward"))
+
+    def test_no_frame_name_in(self) -> None:
+        # Inverse of _any_frame_name_in.
+        self.assertFalse(_no_frame_name_in(self.stack, frozenset({"custom_adamw"})))
+        self.assertTrue(_no_frame_name_in(self.stack, frozenset({"never"})))
+        # Empty stack means no frame is in the set, so True.
+        self.assertTrue(_no_frame_name_in([], frozenset({"forward"})))
 
 
 class TestOmegaConfIntegration(TestCase):
