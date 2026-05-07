@@ -9,9 +9,10 @@
 
 import enum
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field, fields as dataclass_fields
-from typing import Any, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 NUM_GPUS_PER_HOST = 8
 
@@ -42,6 +43,61 @@ class Frame:
     line: int
 
 
+# ---------------------------------------------------------------------------
+# Frame-stack predicate helpers
+#
+# These small helpers form the building blocks for the categorization rule
+# table. Each helper scans the whole frame stack and returns whether the
+# stack contains a frame matching the supplied criterion. They make the rule
+# table declarative and easy to extend.
+# ---------------------------------------------------------------------------
+
+
+def _any_filename_contains(stack: List[Frame], substring: str) -> bool:
+    """Return True if any frame's filename contains the given substring."""
+    return any(substring in frame.filename for frame in stack)
+
+
+def _any_filename_matches_regex(
+    stack: List[Frame], compiled_regex: "re.Pattern[str]"
+) -> bool:
+    """Return True if any frame's filename matches the given compiled regex."""
+    return any(compiled_regex.search(frame.filename) for frame in stack)
+
+
+def _any_frame_name_in(stack: List[Frame], names: frozenset) -> bool:
+    """Return True if any frame's name is in the given set."""
+    return any(frame.name in names for frame in stack)
+
+
+def _any_frame_name_contains(stack: List[Frame], substring: str) -> bool:
+    """Return True if any frame's name contains the given substring."""
+    return any(substring in frame.name for frame in stack)
+
+
+def _any_frame_name_startswith(stack: List[Frame], prefix: str) -> bool:
+    """Return True if any frame's name starts with the given prefix."""
+    return any(frame.name.startswith(prefix) for frame in stack)
+
+
+def _no_frame_name_in(stack: List[Frame], names: frozenset) -> bool:
+    """Return True if NO frame's name is in the given set."""
+    return not _any_frame_name_in(stack, names)
+
+
+# Frozensets used by the rule table. Defined at module scope so the
+# (predicate, category) lambdas can close over them without re-allocating
+# per call.
+_BACKWARD_GRAD_HELPER_NAMES: frozenset = frozenset(
+    {"clip_grad_norm_", "calc_grad_norm"}
+)
+_OPTIMIZER_VANILLA_NAMES: frozenset = frozenset({"custom_adamw", "_init_group"})
+_NET_AGGREGATE_NAMES: frozenset = frozenset(
+    {"dist_max", "dist_mean", "dist_sum", "_aggregate"}
+)
+_STATS_NAMES: frozenset = frozenset({"compute_grad_stats"})
+
+
 class AllocationType(enum.Enum):
     PARAMETER = 0
     ACTIVATION = 1
@@ -56,36 +112,14 @@ class AllocationType(enum.Enum):
 
     @classmethod
     def from_frame_stack(cls, frame_stack: List[Frame]) -> "AllocationType":
-        has_fsdp = any(
-            "fully_sharded_data_parallel.py" in frame.filename for frame in frame_stack
-        )
-        if has_fsdp:
-            return cls.FSDP
+        """Classify a frame stack into an AllocationType.
 
-        for frame in frame_stack:
-            if "forward" in frame.name:
-                return cls.ACTIVATION
-            if "param" in frame.name:
-                return cls.PARAMETER
-            if "flatten_params_wrapper" in frame.filename:
-                return cls.PARAMETER
-            if "build_norm_fn" in frame.name:
-                return cls.PARAMETER
-            if "__init__" in frame.name and "parallel/layers.py" in frame.filename:
-                return cls.PARAMETER
-            if "backward" in frame.name:
-                return cls.BACKWARD
-            if frame.name in ["clip_grad_norm_", "calc_grad_norm"]:
-                return cls.BACKWARD
-            if frame.name in ["custom_adamw", "_init_group"]:
-                return cls.OPTIMIZER
-            if frame.name in ["dist_max", "dist_mean", "dist_sum", "_aggregate"]:
-                return cls.NET
-            if "validate_process_group" in frame.name:
-                return cls.NET_SETUP
-            if frame.name == "compute_grad_stats":
-                return cls.STATS
-
+        Iterates the module-level rule table; the first matching rule wins.
+        Falls back to UNKNOWN if no rule matches.
+        """
+        for predicate, category in _RULE_TABLE:
+            if predicate(frame_stack):
+                return category
         return cls.UNKNOWN
 
     @classmethod
@@ -104,8 +138,6 @@ class AllocationType(enum.Enum):
     @classmethod
     def _matches_custom_pattern(cls, frame_stack: List[Frame], pattern: str) -> bool:
         """Check if any frame matches the custom pattern using regex"""
-        import re
-
         try:
             compiled_pattern = re.compile(pattern)
             for frame in frame_stack:
@@ -118,6 +150,85 @@ class AllocationType(enum.Enum):
             logger.warning(f"Invalid regex pattern: {pattern}")
             return False
         return False
+
+
+# ---------------------------------------------------------------------------
+# Categorization rule table
+#
+# Each entry is (predicate, category). `from_frame_stack` walks the table
+# top-to-bottom and returns the category of the first rule whose predicate
+# returns True. The table is defined at module scope (after AllocationType)
+# so the predicates can close over the enum values directly.
+#
+# Rules are migrated 1-to-1 from the original if-cascade in their original
+# priority order: this preserves behavior for every existing test stack.
+# ---------------------------------------------------------------------------
+_RULE_TABLE: List[tuple[Callable[[List[Frame]], bool], AllocationType]] = [
+    # FSDP — any frame in FSDP source dominates everything else.
+    (
+        lambda s: _any_filename_contains(s, "fully_sharded_data_parallel.py"),
+        AllocationType.FSDP,
+    ),
+    # ACTIVATION — anything mentioning "forward" in its function name.
+    (
+        lambda s: _any_frame_name_contains(s, "forward"),
+        AllocationType.ACTIVATION,
+    ),
+    # PARAMETER — anything mentioning "param" in its function name.
+    (
+        lambda s: _any_frame_name_contains(s, "param"),
+        AllocationType.PARAMETER,
+    ),
+    # PARAMETER — flat-params wrapper.
+    (
+        lambda s: _any_filename_contains(s, "flatten_params_wrapper"),
+        AllocationType.PARAMETER,
+    ),
+    # PARAMETER — norm-fn builder.
+    (
+        lambda s: _any_frame_name_contains(s, "build_norm_fn"),
+        AllocationType.PARAMETER,
+    ),
+    # PARAMETER — module __init__ inside parallel/layers.py.
+    # This is a per-frame compound condition: a single frame must satisfy
+    # both name and filename predicates.
+    (
+        lambda s: any(
+            "__init__" in f.name and "parallel/layers.py" in f.filename for f in s
+        ),
+        AllocationType.PARAMETER,
+    ),
+    # BACKWARD — anything mentioning "backward" in its function name.
+    (
+        lambda s: _any_frame_name_contains(s, "backward"),
+        AllocationType.BACKWARD,
+    ),
+    # BACKWARD — known gradient-norm helpers.
+    (
+        lambda s: _any_frame_name_in(s, _BACKWARD_GRAD_HELPER_NAMES),
+        AllocationType.BACKWARD,
+    ),
+    # OPTIMIZER — vanilla optimizer entry points.
+    (
+        lambda s: _any_frame_name_in(s, _OPTIMIZER_VANILLA_NAMES),
+        AllocationType.OPTIMIZER,
+    ),
+    # NET — distributed aggregation primitives.
+    (
+        lambda s: _any_frame_name_in(s, _NET_AGGREGATE_NAMES),
+        AllocationType.NET,
+    ),
+    # NET_SETUP — process-group validation.
+    (
+        lambda s: _any_frame_name_contains(s, "validate_process_group"),
+        AllocationType.NET_SETUP,
+    ),
+    # STATS — gradient-stat computation.
+    (
+        lambda s: _any_frame_name_in(s, _STATS_NAMES),
+        AllocationType.STATS,
+    ),
+]
 
 
 @dataclass
