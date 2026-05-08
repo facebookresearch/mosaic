@@ -109,6 +109,10 @@ class AllocationType(enum.Enum):
     STATS = 7
     FSDP = 8
     CUSTOM = 9
+    # Sparse embedding parameters (TBE tables, sharded EBC init).
+    EMBEDDING = 10
+    # Graph-compile-time allocations (Inductor / Dynamo / AOTAutograd).
+    COMPILE = 11
 
     @classmethod
     def from_frame_stack(cls, frame_stack: List[Frame]) -> "AllocationType":

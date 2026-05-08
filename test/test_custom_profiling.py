@@ -418,6 +418,41 @@ class TestFrameStackPredicateHelpers(TestCase):
         self.assertTrue(_no_frame_name_in([], frozenset({"forward"})))
 
 
+class TestAllocationTypeEnumExtensions(TestCase):
+    """Tests for the EMBEDDING and COMPILE enum members."""
+
+    def test_embedding_member_exists_with_expected_value(self) -> None:
+        self.assertEqual(AllocationType.EMBEDDING.value, 10)
+        self.assertEqual(AllocationType.EMBEDDING.name, "EMBEDDING")
+
+    def test_compile_member_exists_with_expected_value(self) -> None:
+        self.assertEqual(AllocationType.COMPILE.value, 11)
+        self.assertEqual(AllocationType.COMPILE.name, "COMPILE")
+
+    def test_per_category_alloc_sum_accepts_embedding_and_compile(self) -> None:
+        """The MemoryUsage per-category dict is keyed by AllocationType, so
+        new enum values must be usable as keys without any extra wiring."""
+        memory_usage = MemoryUsage(save_profile=True)
+
+        for cat in (AllocationType.EMBEDDING, AllocationType.COMPILE):
+            evt = TraceEvent(
+                action="alloc",
+                addr=hash(cat),
+                size=4096,
+                stream=0,
+                time_us=0,
+                classification=cat,
+            )
+            memory_usage.update(evt, ["categories"])
+
+        self.assertEqual(
+            memory_usage.per_category_alloc_sum[AllocationType.EMBEDDING], 4096
+        )
+        self.assertEqual(
+            memory_usage.per_category_alloc_sum[AllocationType.COMPILE], 4096
+        )
+
+
 class TestOmegaConfIntegration(TestCase):
     """Tests for OmegaConf integration with custom profiling"""
 
