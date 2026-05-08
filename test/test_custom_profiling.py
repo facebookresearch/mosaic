@@ -453,6 +453,160 @@ class TestAllocationTypeEnumExtensions(TestCase):
         )
 
 
+class TestBackwardCategorization(TestCase):
+    """BACKWARD-domain rules: C++ autograd, DDP reducer, grad-scale helpers.
+
+    Frame names use the demangled C++ symbol form with parameter signatures,
+    so prefix-vs-exact-match bugs cannot hide.
+    """
+
+    def _stack(self, name: str, filename: str = "<unknown>") -> list[Frame]:
+        return [Frame(name=name, filename=filename, line=0)]
+
+    def test_autograd_engine_evaluate_function_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack(
+                    "torch::autograd::Engine::evaluate_function("
+                    "std::shared_ptr<torch::autograd::GraphTask>&, "
+                    "torch::autograd::Node*, torch::autograd::InputBuffer&, "
+                    "std::shared_ptr<torch::autograd::ReadyQueue> const&)"
+                )
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_autograd_python_engine_thread_init_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack(
+                    "torch::autograd::python::PythonEngine::thread_init(int, "
+                    "std::shared_ptr<torch::autograd::ReadyQueue> const&, bool)"
+                )
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_autograd_node_operator_call_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack(
+                    "torch::autograd::Node::operator()("
+                    "std::vector<at::Tensor, std::allocator<at::Tensor>>&&)"
+                )
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_autograd_pynode_apply_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack(
+                    "torch::autograd::PyNode::apply("
+                    "std::vector<at::Tensor, std::allocator<at::Tensor>>&&)"
+                )
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_autograd_cppnode_apply_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack(
+                    "torch::autograd::CppNode<SomeBackwardFn>::apply("
+                    "std::vector<at::Tensor, std::allocator<at::Tensor>>&&)"
+                )
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_autograd_graph_task_post_processing_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack("torch::autograd::GraphTask::exec_post_processing()")
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_autograd_accumulate_grad_apply_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack(
+                    "torch::autograd::AccumulateGrad::apply("
+                    "std::vector<at::Tensor, std::allocator<at::Tensor>>&&)"
+                )
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_autograd_delete_node_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack("torch::autograd::deleteNode(torch::autograd::Node*)")
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_autograd_lambda_post_hook_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack(
+                    "torch::autograd::utils::LambdaPostHook::operator()("
+                    "std::vector<at::Tensor, std::allocator<at::Tensor>> const&, "
+                    "std::vector<at::Tensor, std::allocator<at::Tensor>> const&)"
+                )
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_ddp_reducer_mark_variable_ready_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack("c10d::Reducer::mark_variable_ready(unsigned long)")
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_ddp_reducer_mark_variable_ready_dense_is_backward(self) -> None:
+        # Overload variant exact-name matching would miss.
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack("c10d::Reducer::mark_variable_ready_dense(unsigned long)")
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_ddp_reducer_autograd_hook_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack("c10d::Reducer::autograd_hook(unsigned long)")
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_ddp_reducer_rebuild_buckets_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(
+                self._stack("c10d::Reducer::rebuild_buckets()")
+            ),
+            AllocationType.BACKWARD,
+        )
+
+    def test_python_grad_scale_helper_is_backward(self) -> None:
+        self.assertEqual(
+            AllocationType.from_frame_stack(self._stack("_instantiate_filtered_grads")),
+            AllocationType.BACKWARD,
+        )
+
+    def test_existing_clip_grad_norm_still_works(self) -> None:
+        # Regression: pre-existing rule must still match after new rules are
+        # inserted ahead of it.
+        self.assertEqual(
+            AllocationType.from_frame_stack(self._stack("clip_grad_norm_")),
+            AllocationType.BACKWARD,
+        )
+
+
 class TestOmegaConfIntegration(TestCase):
     """Tests for OmegaConf integration with custom profiling"""
 

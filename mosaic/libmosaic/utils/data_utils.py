@@ -97,6 +97,32 @@ _NET_AGGREGATE_NAMES: frozenset = frozenset(
 )
 _STATS_NAMES: frozenset = frozenset({"compute_grad_stats"})
 
+# Prefix match: real C++ symbols carry parameter signatures.
+_C_AUTOGRAD_FRAME_PREFIXES: tuple = (
+    "torch::autograd::Engine::",
+    "torch::autograd::python::PythonEngine::",
+    "torch::autograd::Node::operator()",
+    "torch::autograd::PyNode::",
+    "torch::autograd::CppNode<",
+    "torch::autograd::GraphTask::",
+    "torch::autograd::AccumulateGrad::",
+    "torch::autograd::deleteNode",
+    "torch::autograd::utils::LambdaPostHook",
+)
+
+# DDP reducer bookkeeping (non-comm). Prefix also covers `_dense` overloads.
+_DDP_REDUCER_BACKWARD_PREFIXES: tuple = (
+    "c10d::Reducer::mark_variable_ready",
+    "c10d::Reducer::mark_bucket_ready",
+    "c10d::Reducer::autograd_hook",
+    "c10d::Reducer::initialize_buckets",
+    "c10d::Reducer::initialize_local_used_map",
+    "c10d::Reducer::rebuild_buckets",
+    "c10d::Reducer::set_static_graph",
+)
+
+_GRAD_SCALE_HELPER_NAMES: frozenset = frozenset({"_instantiate_filtered_grads"})
+
 
 class AllocationType(enum.Enum):
     PARAMETER = 0
@@ -201,6 +227,21 @@ _RULE_TABLE: List[tuple[Callable[[List[Frame]], bool], AllocationType]] = [
             "__init__" in f.name and "parallel/layers.py" in f.filename for f in s
         ),
         AllocationType.PARAMETER,
+    ),
+    # BACKWARD — C++ autograd engine / graph-task frames.
+    (
+        lambda s: any(f.name.startswith(_C_AUTOGRAD_FRAME_PREFIXES) for f in s),
+        AllocationType.BACKWARD,
+    ),
+    # BACKWARD — DDP reducer bookkeeping. Allreduce comm is categorized as NET.
+    (
+        lambda s: any(f.name.startswith(_DDP_REDUCER_BACKWARD_PREFIXES) for f in s),
+        AllocationType.BACKWARD,
+    ),
+    # BACKWARD — Python grad-scaling helpers.
+    (
+        lambda s: _any_frame_name_in(s, _GRAD_SCALE_HELPER_NAMES),
+        AllocationType.BACKWARD,
     ),
     # BACKWARD — anything mentioning "backward" in its function name.
     (
