@@ -607,6 +607,110 @@ class TestBackwardCategorization(TestCase):
         )
 
 
+class TestNetCommHookCategorization(TestCase):
+    """NET rules for DDP comm-hook and TorchRec comm frames. C++ frame
+    names use the demangled-with-signature form snapshots actually emit."""
+
+    def test_ddp_all_reduce_bucket_is_net(self) -> None:
+        frames = [
+            Frame(
+                name="c10d::Reducer::all_reduce_bucket(c10d::Reducer::Bucket&)",
+                filename="<invalid>",
+                line=0,
+            ),
+        ]
+        self.assertEqual(AllocationType.from_frame_stack(frames), AllocationType.NET)
+
+    def test_python_comm_hook_run_hook_is_net(self) -> None:
+        frames = [
+            Frame(
+                name="c10d::PythonCommHook::runHook(c10d::GradBucket&)",
+                filename="<invalid>",
+                line=0,
+            ),
+        ]
+        self.assertEqual(AllocationType.from_frame_stack(frames), AllocationType.NET)
+
+    def test_ddp_comm_hooks_filename_is_net(self) -> None:
+        frames = [
+            Frame(
+                name="default_hooks_allreduce",
+                filename="torch/distributed/algorithms/ddp_comm_hooks/default_hooks.py",
+                line=20,
+            ),
+        ]
+        self.assertEqual(AllocationType.from_frame_stack(frames), AllocationType.NET)
+
+    def test_torchrec_comm_ops_filename_is_net(self) -> None:
+        frames = [
+            Frame(
+                name="alltoall_pooled",
+                filename="torchrec/distributed/comm_ops.py",
+                line=300,
+            ),
+        ]
+        self.assertEqual(AllocationType.from_frame_stack(frames), AllocationType.NET)
+
+    def test_comm_hook_under_autograd_engine_is_net(self) -> None:
+        # Locks NET-before-BACKWARD ordering: real comm-hook stacks
+        # carry an autograd parent frame.
+        frames = [
+            Frame(
+                name="_compress_hook",
+                filename="torch/distributed/algorithms/ddp_comm_hooks/default_hooks.py",
+                line=71,
+            ),
+            Frame(
+                name="c10d::PythonCommHook::runHook(c10d::GradBucket&)",
+                filename="<invalid>",
+                line=0,
+            ),
+            Frame(
+                name="c10d::Reducer::all_reduce_bucket(c10d::Reducer::Bucket&)",
+                filename="<invalid>",
+                line=0,
+            ),
+            Frame(
+                name="torch::autograd::Engine::thread_main("
+                "std::shared_ptr<torch::autograd::GraphTask> const&)",
+                filename="<invalid>",
+                line=0,
+            ),
+        ]
+        self.assertEqual(AllocationType.from_frame_stack(frames), AllocationType.NET)
+
+    def test_torchrec_comm_ops_under_forward_is_net(self) -> None:
+        # Locks NET-before-ACTIVATION ordering: TorchRec all-to-all
+        # runs inside EBC.forward.
+        frames = [
+            Frame(
+                name="alltoall_pooled",
+                filename="torchrec/distributed/comm_ops.py",
+                line=524,
+            ),
+            Frame(
+                name="forward",
+                filename="torchrec/distributed/embeddingbag.py",
+                line=1124,
+            ),
+        ]
+        self.assertEqual(AllocationType.from_frame_stack(frames), AllocationType.NET)
+
+    def test_pure_autograd_engine_remains_backward(self) -> None:
+        # Negative: bare autograd stack stays BACKWARD.
+        frames = [
+            Frame(
+                name="torch::autograd::Engine::thread_main("
+                "std::shared_ptr<torch::autograd::GraphTask> const&)",
+                filename="<invalid>",
+                line=0,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.BACKWARD
+        )
+
+
 class TestOmegaConfIntegration(TestCase):
     """Tests for OmegaConf integration with custom profiling"""
 
