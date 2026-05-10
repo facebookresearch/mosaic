@@ -123,6 +123,13 @@ _DDP_REDUCER_BACKWARD_PREFIXES: tuple = (
 
 _GRAD_SCALE_HELPER_NAMES: frozenset = frozenset({"_instantiate_filtered_grads"})
 
+# DDP comm-hook bucket all-reduce frames. Prefix match handles
+# demangled C++ symbols with parameter signatures.
+_NET_COMM_HOOK_PREFIXES: tuple = (
+    "c10d::Reducer::all_reduce_bucket",
+    "c10d::PythonCommHook::runHook",
+)
+
 
 class AllocationType(enum.Enum):
     PARAMETER = 0
@@ -198,6 +205,23 @@ _RULE_TABLE: List[tuple[Callable[[List[Frame]], bool], AllocationType]] = [
     (
         lambda s: _any_filename_contains(s, "fully_sharded_data_parallel.py"),
         AllocationType.FSDP,
+    ),
+    # NET — DDP comm-hook and TorchRec comm frames. Must precede the
+    # autograd BACKWARD and "forward" ACTIVATION rules below, since real
+    # comm stacks carry both an autograd parent and a forward ancestor.
+    (
+        lambda s: any(f.name.startswith(_NET_COMM_HOOK_PREFIXES) for f in s),
+        AllocationType.NET,
+    ),
+    (
+        lambda s: _any_filename_contains(
+            s, "torch/distributed/algorithms/ddp_comm_hooks/"
+        ),
+        AllocationType.NET,
+    ),
+    (
+        lambda s: _any_filename_contains(s, "torchrec/distributed/comm_ops.py"),
+        AllocationType.NET,
     ),
     # ACTIVATION — anything mentioning "forward" in its function name.
     (
