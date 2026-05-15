@@ -711,6 +711,77 @@ class TestNetCommHookCategorization(TestCase):
         )
 
 
+class TestOptimizerCategorization(TestCase):
+    """Tests for OPTIMIZER-domain rules: optimizer step / construction
+    frames and Distributed Shampoo / TorchRec keyed-optimizer files."""
+
+    def test_distributed_shampoo_step_is_optimizer(self) -> None:
+        # Shampoo's step is a `step` frame inside the shampoo file.
+        frames = [
+            Frame(
+                name="step",
+                filename="distributed_shampoo/shampoo.py",
+                line=500,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.OPTIMIZER
+        )
+
+    def test_vanilla_torch_optim_step_is_optimizer(self) -> None:
+        # A generic torch.optim Optimizer.step() frame.
+        frames = [
+            Frame(
+                name="step",
+                filename="torch/optim/optimizer.py",
+                line=180,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.OPTIMIZER
+        )
+
+    def test_torchrec_keyed_optimizer_step_is_optimizer(self) -> None:
+        # TorchRec keyed optimizer step (matches via filename rule).
+        frames = [
+            Frame(
+                name="some_internal_helper",
+                filename="torchrec/optim/keyed.py",
+                line=100,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.OPTIMIZER
+        )
+
+    def test_shampoo_preconditioner_construction_is_optimizer(self) -> None:
+        # Shampoo preconditioner construction frame.
+        frames = [
+            Frame(
+                name="_instantiate_shampoo_preconditioner_list",
+                filename="distributed_shampoo/preconditioner.py",
+                line=42,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.OPTIMIZER
+        )
+
+    def test_existing_init_group_still_works(self) -> None:
+        # Regression check: the pre-existing rule for _init_group must
+        # continue to map to OPTIMIZER even with the expanded name set.
+        frames = [
+            Frame(
+                name="_init_group",
+                filename="torch/optim/adam.py",
+                line=60,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.OPTIMIZER
+        )
+
+
 class TestOmegaConfIntegration(TestCase):
     """Tests for OmegaConf integration with custom profiling"""
 

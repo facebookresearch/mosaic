@@ -14,6 +14,12 @@ from collections import defaultdict
 from dataclasses import dataclass, field, fields as dataclass_fields
 from typing import Any, Callable, List, Optional, Union
 
+# Extension hook: empty by default; downstream builds may override.
+from mosaic.libmosaic.utils.internal_optimizer_rules import (
+    INTERNAL_OPTIMIZER_FILENAME_SUBSTRINGS as _INTERNAL_OPTIMIZER_FILENAME_SUBSTRINGS,
+    INTERNAL_OPTIMIZER_NAMES as _INTERNAL_OPTIMIZER_NAMES,
+)
+
 NUM_GPUS_PER_HOST = 8
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -91,7 +97,34 @@ def _no_frame_name_in(stack: List[Frame], names: frozenset) -> bool:
 _BACKWARD_GRAD_HELPER_NAMES: frozenset = frozenset(
     {"clip_grad_norm_", "calc_grad_norm"}
 )
-_OPTIMIZER_VANILLA_NAMES: frozenset = frozenset({"custom_adamw", "_init_group"})
+_OPTIMIZER_VANILLA_NAMES: frozenset = (
+    frozenset(
+        {
+            "custom_adamw",
+            "_init_group",
+            # Optimizer step entry points.
+            "step",
+            "_per_group_step_impl",
+            # Optimizer construction.
+            "create_optimizer",
+            "_create_optimizer",
+            "create_keyed_optimizer",
+            # Distributed Shampoo preconditioner construction.
+            "_instantiate_shampoo_preconditioner_list",
+            "_create_kronecker_factors_state",
+            "_create_kronecker_factors_state_for_block",
+            "_create_base_kronecker_factors",
+        }
+    )
+    | _INTERNAL_OPTIMIZER_NAMES
+)
+
+# Filenames (substring match) that mark an allocation as belonging to an
+# optimizer implementation.
+_OPTIMIZER_FILENAME_SUBSTRINGS: tuple = (
+    "torch/optim/optimizer.py",
+    "torchrec/optim/keyed.py",
+) + _INTERNAL_OPTIMIZER_FILENAME_SUBSTRINGS
 _NET_AGGREGATE_NAMES: frozenset = frozenset(
     {"dist_max", "dist_mean", "dist_sum", "_aggregate"}
 )
@@ -280,6 +313,13 @@ _RULE_TABLE: List[tuple[Callable[[List[Frame]], bool], AllocationType]] = [
     # OPTIMIZER — vanilla optimizer entry points.
     (
         lambda s: _any_frame_name_in(s, _OPTIMIZER_VANILLA_NAMES),
+        AllocationType.OPTIMIZER,
+    ),
+    # OPTIMIZER — files implementing optimizer step / construction.
+    (
+        lambda s: any(
+            sub in f.filename for f in s for sub in _OPTIMIZER_FILENAME_SUBSTRINGS
+        ),
         AllocationType.OPTIMIZER,
     ),
     # NET — distributed aggregation primitives.
