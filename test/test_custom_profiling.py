@@ -782,6 +782,58 @@ class TestOptimizerCategorization(TestCase):
         )
 
 
+class TestEmbeddingCategorization(TestCase):
+    """Tests for EMBEDDING categorization rules."""
+
+    def test_init_dmp_is_embedding(self) -> None:
+        frames = [
+            Frame(
+                name="_init_dmp",
+                filename="torchrec/distributed/model_parallel.py",
+                line=300,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.EMBEDDING
+        )
+
+    def test_apply_2d_emb_sharding_is_embedding(self) -> None:
+        frames = [
+            Frame(
+                name="apply_2d_emb_sharding",
+                filename="torchrec/distributed/sharding/cw_sharding.py",
+                line=120,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.EMBEDDING
+        )
+
+    def test_fbgemm_tbe_init_is_embedding(self) -> None:
+        frames = [
+            Frame(
+                name="reset_uvm_cache_stats",
+                filename=("fbgemm_gpu/split_table_batched_embeddings_ops_training.py"),
+                line=900,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.EMBEDDING
+        )
+
+    def test_torchrec_ebc_sharding_is_embedding(self) -> None:
+        frames = [
+            Frame(
+                name="ShardedEmbeddingBagCollection_init",
+                filename="torchrec/distributed/embeddingbag.py",
+                line=80,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.EMBEDDING
+        )
+
+
 class TestOmegaConfIntegration(TestCase):
     """Tests for OmegaConf integration with custom profiling"""
 

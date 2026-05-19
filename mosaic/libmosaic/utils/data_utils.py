@@ -163,6 +163,36 @@ _NET_COMM_HOOK_PREFIXES: tuple = (
     "c10d::PythonCommHook::runHook",
 )
 
+# Frame names that mark an allocation as EMBEDDING (sparse params, distinct
+# from dense PARAMETER).
+_EMBEDDING_INIT_NAMES: frozenset = frozenset(
+    {
+        "_init_dmp",
+        "_shard_modules_impl",
+        "_create_shard_module",
+        "shard",
+        "apply_2d_emb_sharding",
+        "_create_lookups",
+        "create_lookup",
+        "_create_embedding_kernel",
+        "init_parameters",
+        "_init_fbgemm_regroup",
+        "_apply_split",
+        "_apply_cache_state",
+    }
+)
+
+# Filenames (substring match) that mark an allocation as EMBEDDING.
+_EMBEDDING_FILENAME_SUBSTRINGS: tuple = (
+    "torchrec/distributed/embedding_lookup.py",
+    "torchrec/distributed/embeddingbag.py",
+    "torchrec/distributed/batched_embedding_kernel.py",
+    "torchrec/distributed/embedding_sharding.py",
+    "torchrec/distributed/sharding/",
+    "fbgemm_gpu/split_table_batched_embeddings_ops_training.py",
+    "fbgemm_gpu/split_table_batched_embeddings_ops_training_common.py",
+)
+
 
 class AllocationType(enum.Enum):
     PARAMETER = 0
@@ -255,6 +285,18 @@ _RULE_TABLE: List[tuple[Callable[[List[Frame]], bool], AllocationType]] = [
     (
         lambda s: _any_filename_contains(s, "torchrec/distributed/comm_ops.py"),
         AllocationType.NET,
+    ),
+    # EMBEDDING — must precede ACTIVATION/PARAMETER so `init_parameters`
+    # and init paths that trace through forward stay EMBEDDING.
+    (
+        lambda s: _any_frame_name_in(s, _EMBEDDING_INIT_NAMES),
+        AllocationType.EMBEDDING,
+    ),
+    (
+        lambda s: any(
+            sub in f.filename for f in s for sub in _EMBEDDING_FILENAME_SUBSTRINGS
+        ),
+        AllocationType.EMBEDDING,
     ),
     # ACTIVATION — anything mentioning "forward" in its function name.
     (
