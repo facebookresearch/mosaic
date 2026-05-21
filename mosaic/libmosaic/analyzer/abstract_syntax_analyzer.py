@@ -51,7 +51,7 @@ class ASTCodeParser:
         model_path: Optional[str] = None,
         source_content: Optional[str] = None,
         file_name: Optional[str] = None,
-    ):
+    ) -> None:
         if model_path is None and source_content is None:
             raise ValueError("Either model_path or source_content must be provided")
         if model_path is not None and source_content is not None:
@@ -127,7 +127,7 @@ class ASTCodeParser:
 
     def _process_function(
         self, func_node: ast.FunctionDef, parent_class: Optional[str]
-    ):
+    ) -> None:
         """Process a function (standalone or method)."""
         func_name = func_node.name
         start_line = func_node.lineno  # AST uses 1-based indexing
