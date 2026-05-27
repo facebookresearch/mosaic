@@ -193,6 +193,25 @@ _EMBEDDING_FILENAME_SUBSTRINGS: tuple = (
     "fbgemm_gpu/split_table_batched_embeddings_ops_training_common.py",
 )
 
+# FBGEMM forward / TBE PT2 / VBE lookup names that don't contain the
+# literal word "forward" and so escape the broad ACTIVATION rule below.
+_ACTIVATION_FBGEMM_NAME_REGEX: "re.Pattern[str]" = re.compile(
+    r"^(?:"
+    r"fbgemm_gpu::.*Op::forward"
+    r"|fbgemm_gpu::group_index_select_dim0"
+    r"|fbgemm_gpu::pack_segments"
+    r"|fbgemm_gpu::permute_multi_embedding_"
+    r"|fbgemm_gpu::offsets_range_cuda"
+    r"|split_embedding_codegen_lookup_.*_function_pt2"
+    r"|SplitVBELookupFunction_.*::forward"
+    r")"
+)
+
+# Inductor cache files: /tmp/torchinductor_<user>/<bucket>/c<hash>.py.
+_INDUCTOR_CACHE_FILENAME_REGEX: "re.Pattern[str]" = re.compile(
+    r"torchinductor_[^/]+/[a-z0-9]{2}/c[a-z0-9]+\.py"
+)
+
 
 class AllocationType(enum.Enum):
     PARAMETER = 0
@@ -301,6 +320,16 @@ _RULE_TABLE: List[tuple[Callable[[List[Frame]], bool], AllocationType]] = [
     # ACTIVATION — anything mentioning "forward" in its function name.
     (
         lambda s: _any_frame_name_contains(s, "forward"),
+        AllocationType.ACTIVATION,
+    ),
+    # ACTIVATION — FBGEMM / TBE PT2 / VBE lookup names missed by "forward".
+    (
+        lambda s: any(_ACTIVATION_FBGEMM_NAME_REGEX.search(f.name) for f in s),
+        AllocationType.ACTIVATION,
+    ),
+    # ACTIVATION — Inductor cache files (runtime kernel artifacts).
+    (
+        lambda s: _any_filename_matches_regex(s, _INDUCTOR_CACHE_FILENAME_REGEX),
         AllocationType.ACTIVATION,
     ),
     # PARAMETER — anything mentioning "param" in its function name.

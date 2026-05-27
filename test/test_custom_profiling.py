@@ -834,6 +834,71 @@ class TestEmbeddingCategorization(TestCase):
         )
 
 
+class TestActivationFbgemmAndInductorCategorization(TestCase):
+    """FBGEMM forward Ops, TBE PT2 / VBE lookup, and Inductor cache files."""
+
+    def test_fbgemm_op_forward_is_activation(self) -> None:
+        frames = [
+            Frame(
+                name="fbgemm_gpu::JaggedToPaddedDenseOp::forward",
+                filename="fbgemm_gpu/jagged_tensor_ops.cpp",
+                line=120,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.ACTIVATION
+        )
+
+    def test_tbe_pt2_lookup_function_is_activation(self) -> None:
+        frames = [
+            Frame(
+                name="split_embedding_codegen_lookup_rowwise_adagrad_function_pt2",
+                filename="fbgemm_gpu/split_embeddings_utils.py",
+                line=300,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.ACTIVATION
+        )
+
+    def test_vbe_lookup_forward_is_activation(self) -> None:
+        frames = [
+            Frame(
+                name="SplitVBELookupFunction_v1::forward",
+                filename="fbgemm_gpu/vbe_lookup.cpp",
+                line=80,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.ACTIVATION
+        )
+
+    def test_inductor_cache_file_is_activation(self) -> None:
+        frames = [
+            Frame(
+                name="call",
+                filename="/tmp/torchinductor_user/ab/cabcdef12.py",
+                line=5,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.ACTIVATION
+        )
+
+    def test_non_inductor_cache_file_does_not_match(self) -> None:
+        # Negative: non-cache .py falls through to UNKNOWN.
+        frames = [
+            Frame(
+                name="some_helper",
+                filename="/var/tmp/foo.py",
+                line=10,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.UNKNOWN
+        )
+
+
 class TestOmegaConfIntegration(TestCase):
     """Tests for OmegaConf integration with custom profiling"""
 
