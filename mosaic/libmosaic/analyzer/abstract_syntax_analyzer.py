@@ -101,7 +101,7 @@ class ASTCodeParser:
             elif isinstance(node, ast.FunctionDef):
                 self._process_function(node, parent_class=None)
 
-    def _process_class(self, class_node: ast.ClassDef):
+    def _process_class(self, class_node: ast.ClassDef) -> None:
         """Process a class and its methods."""
         class_name = class_node.name
         start_line = class_node.lineno  # AST uses 1-based indexing
