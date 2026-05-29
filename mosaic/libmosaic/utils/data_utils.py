@@ -212,6 +212,47 @@ _INDUCTOR_CACHE_FILENAME_REGEX: "re.Pattern[str]" = re.compile(
     r"torchinductor_[^/]+/[a-z0-9]{2}/c[a-z0-9]+\.py"
 )
 
+# Inductor / Dynamo / AOTAutograd compile-time entry-point frame names.
+_COMPILE_ENTRY_POINT_NAMES: frozenset = frozenset(
+    {
+        "_compile",
+        "_compile_fx_main",
+        "_compile_fx_inner",
+        "_compile_inner",
+        "_compile_to_module",
+        "_call_user_compiler",
+        "call_user_compiler",
+        "codegen_and_compile",
+        "fx_codegen_and_compile",
+        "_maybe_wrap_and_compile_fx_main",
+        "aot_module_simplified",
+        "aot_stage2_compile",
+        "aot_stage2_inference",
+        "_aot_stage2b_compile_forward_or_inference",
+        "_aot_stage2b_inference_compile",
+        "fw_compiler_base",
+    }
+)
+
+# Filename substrings that mark a frame as Inductor / Dynamo / AOTAutograd source.
+_COMPILE_FILENAME_SUBSTRINGS: tuple = (
+    "torch/_inductor/",
+    "torch/_functorch/_aot_autograd/",
+    "torch/_dynamo/",
+)
+
+# Runtime-marker frames: if any is present, the stack is executing a
+# compiled artifact (ACTIVATION), not compiling (COMPILE).
+_COMPILE_RUNTIME_GUARD_NAMES: frozenset = frozenset(
+    {
+        "runtime_wrapper",
+        "compile_wrapper",
+        "call_func_at_runtime_with_args",
+        "_run_ddp_forward",
+        "_train_step_impl",
+    }
+)
+
 
 class AllocationType(enum.Enum):
     PARAMETER = 0
@@ -316,6 +357,21 @@ _RULE_TABLE: List[tuple[Callable[[List[Frame]], bool], AllocationType]] = [
             sub in f.filename for f in s for sub in _EMBEDDING_FILENAME_SUBSTRINGS
         ),
         AllocationType.EMBEDDING,
+    ),
+    # COMPILE — Inductor / Dynamo / AOTAutograd compile-time entry points.
+    # Both rules apply the runtime-marker guard so stacks executing a
+    # compiled artifact fall through to the "forward" rule (ACTIVATION).
+    (
+        lambda s: _any_frame_name_in(s, _COMPILE_ENTRY_POINT_NAMES)
+        and _no_frame_name_in(s, _COMPILE_RUNTIME_GUARD_NAMES),
+        AllocationType.COMPILE,
+    ),
+    (
+        lambda s: any(
+            sub in f.filename for f in s for sub in _COMPILE_FILENAME_SUBSTRINGS
+        )
+        and _no_frame_name_in(s, _COMPILE_RUNTIME_GUARD_NAMES),
+        AllocationType.COMPILE,
     ),
     # ACTIVATION — anything mentioning "forward" in its function name.
     (
