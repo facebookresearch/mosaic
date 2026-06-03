@@ -2,7 +2,7 @@ altair==5.5.0
 click==8.3.0
 importlib_resources==6.5.2
 later==25.8.1
-mcp==1.0.0
+mcp==1.23.0
 pandas==2.3.3
 setuptools==78.1.1
 omegaconf==2.3.0
