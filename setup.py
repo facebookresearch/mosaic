@@ -18,12 +18,6 @@ setup(
         "mosaic.mcp",
         "mosaic.mcp_common",
     ],
-    package_dir={
-        "mosaic.cmd": "cmd",
-        "mosaic.libmosaic": "libmosaic",
-        "mosaic.libmosaic.analyzer": "libmosaic/analyzer",
-        "mosaic.libmosaic.utils": "libmosaic/utils",
-    },
     install_requires=[
         "altair>=5.5.0",
         "click>=8.3.0",
