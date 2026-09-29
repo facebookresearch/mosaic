@@ -436,9 +436,13 @@ class AbstractSyntaxAnalyzer:
                 # If no instance of the model file is found, store the stack trace
                 event_data.append(
                     {
+                        # pyrefly: ignore [bad-assignment]
                         "line_numbers": None,
+                        # pyrefly: ignore [bad-assignment]
                         "line_content": None,
+                        # pyrefly: ignore [bad-assignment]
                         "class_names": None,
+                        # pyrefly: ignore [bad-assignment]
                         "function_names": None,
                         "stack_trace": stack_trace_string,
                         "memory_utilization": memory_utilization,
