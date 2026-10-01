@@ -899,6 +899,93 @@ class TestActivationFbgemmAndInductorCategorization(TestCase):
         )
 
 
+class TestCompileCategorization(TestCase):
+    """COMPILE rules: Inductor / Dynamo / AOTAutograd + runtime guard."""
+
+    def test_compile_fx_inner_pure_compile_is_compile(self) -> None:
+        frames = [
+            Frame(
+                name="_compile_fx_inner",
+                filename="torch/_inductor/compile_fx.py",
+                line=400,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.COMPILE
+        )
+
+    def test_aot_module_simplified_pure_compile_is_compile(self) -> None:
+        frames = [
+            Frame(
+                name="aot_module_simplified",
+                filename="torch/_functorch/_aot_autograd/aot_module.py",
+                line=120,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.COMPILE
+        )
+
+    def test_compile_name_with_runtime_wrapper_is_activation(self) -> None:
+        # runtime_wrapper present → compiled artifact execution, not compile.
+        frames = [
+            Frame(
+                name="_compile_fx_inner",
+                filename="torch/_inductor/compile_fx.py",
+                line=400,
+            ),
+            Frame(
+                name="runtime_wrapper",
+                filename="torch/_functorch/_aot_autograd/runtime_wrappers.py",
+                line=50,
+            ),
+            Frame(
+                name="model_forward",
+                filename="my_model.py",
+                line=10,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.ACTIVATION
+        )
+
+    def test_inductor_runtime_via_runtime_wrapper_is_activation(self) -> None:
+        # Inductor filename + runtime_wrapper → ACTIVATION.
+        frames = [
+            Frame(
+                name="some_helper",
+                filename="torch/_inductor/runtime_helpers.py",
+                line=20,
+            ),
+            Frame(
+                name="runtime_wrapper",
+                filename="torch/_functorch/_aot_autograd/runtime_wrappers.py",
+                line=50,
+            ),
+            Frame(
+                name="model_forward",
+                filename="my_model.py",
+                line=10,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.ACTIVATION
+        )
+
+    def test_bare_dynamo_filename_no_markers_is_compile(self) -> None:
+        # Dynamo file, no compile name, no runtime marker → filename rule fires.
+        frames = [
+            Frame(
+                name="some_dynamo_helper",
+                filename="torch/_dynamo/optimizations/runtime.py",
+                line=30,
+            ),
+        ]
+        self.assertEqual(
+            AllocationType.from_frame_stack(frames), AllocationType.COMPILE
+        )
+
+
 class TestOmegaConfIntegration(TestCase):
     """Tests for OmegaConf integration with custom profiling"""
 
