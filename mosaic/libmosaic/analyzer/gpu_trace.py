@@ -30,6 +30,7 @@ class GPUTrace:
             1024 * 1024
         )
         logging.info(
+            # pyrefly: ignore [invalid-argument]
             f"Kineto trace {self.trace_file_name} registered, size {self.trace_file_size:.2f}MB."
         )
 
@@ -44,6 +45,7 @@ class GPUTrace:
             )
             return None
         logging.info(
+            # pyrefly: ignore [invalid-argument]
             f"Loading kineto trace {self.trace_file_name}, size {self.trace_file_size:.2f}MB ..."
         )
 
