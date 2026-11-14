@@ -184,6 +184,7 @@ class MemorySnapshot(SnapshotLoader):
         # TODO: if we are using expandable segments, they may start using segment_map instead of segment_alloc, and segment_unmap instead of segment_free
         memory_usage: float = 0.0
         self.memory_usage_history = {}
+        # pyrefly: ignore [redefinition]
         self.max_memory_usage: FloatMemoryUsage = FloatMemoryUsage(0.0)
         self.call_stack = {}
 
@@ -270,8 +271,11 @@ class MemorySnapshot(SnapshotLoader):
         memory_usage: MemoryUsage = MemoryUsage(
             save_profile=True, track_allocation_order=preserve_allocation_order
         )
+        # pyrefly: ignore [redefinition]
         self.memory_usage_history: dict[int, MemoryUsage] = {}
+        # pyrefly: ignore [redefinition]
         self.max_memory_usage: MemoryUsage = MemoryUsage()
+        # pyrefly: ignore [redefinition]
         self.call_stack: dict[int, str] = {}
         annotation_stack = []
         external_annotation_events = self.snapshot_data.get("external_annotations", [])
@@ -310,7 +314,7 @@ class MemorySnapshot(SnapshotLoader):
         # TODO: if we are using expandable segments, they may start using segment_map instead of segment_alloc, and segment_unmap instead of segment_free
         memory_usage: float = 0.0
         self.memory_usage_history = {}
-        # pyrefly: ignore [bad-assignment]
+        # pyrefly: ignore [bad-assignment, redefinition]
         self.max_memory_usage: float = 0.0
         self.call_stack = {}
 
